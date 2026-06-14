@@ -1,0 +1,39 @@
+name: sast
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  python-sast:
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('**/*.py') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python scanners
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit ruff pip-audit
+      - name: Bandit
+        run: bandit -q -r . -x tests,.venv,venv
+      - name: Ruff
+        run: ruff check .
+      - name: pip-audit
+        run: pip-audit
+
+  opengrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Opengrep placeholder
+        run: |
+          echo "Install Opengrep from official current stable docs, then run:"
+          echo "opengrep --config .repo-safety/opengrep ."
+          echo "This workflow is intentionally non-installing to avoid unpinned installer snippets."

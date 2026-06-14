@@ -1,0 +1,34 @@
+[project]
+name = "ai-repo-safety"
+version = "0.1.0"
+description = "One universal AI/vibe-coding repo safety skill with OSS guardrails, Python 3.12, uv/uvx, secret scanning, SAST, GitHub read guard, MCP safety, and incident cleanup."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+  { name = "AI Repo Safety contributors" }
+]
+keywords = ["security", "ai-coding", "vibe-coding", "secrets", "sast", "github", "mcp", "uv"]
+dependencies = []
+
+[project.scripts]
+ai-repo-safety = "ai_repo_safety.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_repo_safety"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "pyproject.toml", "tests"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
