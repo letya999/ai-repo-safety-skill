@@ -14,6 +14,20 @@ def test_init_project(tmp_path: Path) -> None:
     code = main(["init", "--target", str(tmp_path), "--python", "yes", "--github", "no"])
     assert code == 0
     assert (tmp_path / ".gitignore").exists()
+    assert (tmp_path / ".dockerignore").exists()
     assert (tmp_path / ".env.example").exists()
     assert (tmp_path / "AGENTS.md").exists()
     assert (tmp_path / "scripts" / "security" / "forbid_sensitive_files.py").exists()
+
+
+def test_setup_project(tmp_path: Path) -> None:
+    import subprocess
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True)
+    code = main(["setup", "--target", str(tmp_path), "--python", "yes", "--github", "no"])
+    assert code == 0
+    assert (tmp_path / ".gitignore").exists()
+    assert (tmp_path / ".dockerignore").exists()
+    assert (tmp_path / ".env.example").exists()
+    assert (tmp_path / "AGENTS.md").exists()
+    assert (tmp_path / "scripts" / "security" / "forbid_sensitive_files.py").exists()
+

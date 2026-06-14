@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .util import detect_python_project, project_root, run_cmd, which
+from .util import detect_python_project, project_root, run_cmd, which, git_has_commits
 
 
 def run_available(command: list[str], *, cwd: Path, required: bool = False, timeout: int = 300) -> int:
@@ -35,8 +35,12 @@ def scan(target: str | Path, *, strict: bool = False) -> int:
 
     commands = [
         ["gitleaks", "detect", "--source", ".", "--redact", "--exit-code", "1"],
-        ["trufflehog", "git", "file://.", "--results=verified,unknown", "--fail"],
     ]
+    if git_has_commits(root):
+        commands.append(["trufflehog", "git", "file://.", "--results=verified,unknown", "--fail"])
+    else:
+        commands.append(["trufflehog", "filesystem", ".", "--results=verified,unknown", "--fail"])
+
     for command in commands:
         code = run_available(command, cwd=root, required=strict)
         if code != 0 and code != 2:
@@ -71,12 +75,17 @@ def scan(target: str | Path, *, strict: bool = False) -> int:
 def prepush(target: str | Path) -> int:
     root = project_root(target)
     failures = 0
-    for command in [
+    commands = [
         ["python", "scripts/security/forbid_sensitive_files.py", "--all"],
         ["python", "scripts/security/scan_mcp_config.py"],
         ["gitleaks", "detect", "--source", ".", "--redact", "--exit-code", "1"],
-        ["trufflehog", "git", "file://.", "--since-commit", "HEAD~20", "--results=verified,unknown", "--fail"],
-    ]:
+    ]
+    if git_has_commits(root):
+        commands.append(["trufflehog", "git", "file://.", "--since-commit", "HEAD~20", "--results=verified,unknown", "--fail"])
+    else:
+        commands.append(["trufflehog", "filesystem", ".", "--results=verified,unknown", "--fail"])
+
+    for command in commands:
         if command[0] == "python" and not (root / command[1]).exists():
             continue
         code = run_available(command, cwd=root, required=command[0] == "python")

@@ -49,7 +49,7 @@ The skill lives here:
 SKILL.md
 ```
 
-You can use the provided wrappers in `scripts/` to easily run the CLI.
+The skill is ready to be executed via `uv run` universally on Windows, macOS, and Linux without the need for OS-specific shell wrappers.
 
 ## Commands
 
@@ -87,17 +87,14 @@ Semgrep is **not** the default. The SAST profile is Opengrep-first. Existing Sem
 
 ## Tool installation policy
 
-The CLI checks whether Git, Python, uv, uvx, GitHub CLI, and scanners are available. It does not silently install system tools by default.
+The CLI checks whether Git, Python, uv, uvx, GitHub CLI, and scanners are available. 
 
-When tools are missing, the CLI produces an agent install plan. The agent must:
+When tools are missing, the agent can automatically install all required Python and System binaries by running:
+```bash
+uv run ai-repo-safety install-missing
+```
 
-1. search official documentation or releases for the current stable compatible version,
-2. select the install method for the detected OS,
-3. install the tool only after the user or automation policy allows it,
-4. re-run `ai-repo-safety doctor`,
-5. continue only when required gates are available.
-
-Python tools can usually be installed with `uv tool install ...`. System binaries such as Git, Gitleaks, TruffleHog, OSV-Scanner, and GitHub CLI may require OS package managers or official releases.
+This command uses `uv tool` for Python tools (like bandit, pip-audit) and leverages the native package manager (`winget`, `brew`, `npm`) or direct downloads to globally install system binaries (like Gitleaks, OSV-Scanner, TruffleHog, Opengrep, GitHub CLI) across Windows, macOS, and Linux.
 
 ## GitHub read guard
 

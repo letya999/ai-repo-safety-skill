@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
-import subprocess
-import sys
+import subprocess  # nosec
 from pathlib import Path
 
 DENY = [
@@ -17,7 +16,7 @@ ALLOW = [".env.example", "example.credentials.json", "credentials.example.json"]
 def git_files(all_files: bool) -> list[str]:
     cmd = ["git", "ls-files"] if all_files else ["git", "diff", "--cached", "--name-only"]
     try:
-        out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
+        out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)  # nosec
     except Exception:
         return []
     return [p.strip().replace("\\", "/") for p in out.splitlines() if p.strip()]

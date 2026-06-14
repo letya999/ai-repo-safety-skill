@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
+import subprocess  # nosec
 
 COMMANDS = [
     ["gitleaks", "detect", "--source", ".", "--redact", "--exit-code", "1"],
@@ -16,7 +16,7 @@ def main() -> int:
             print(f"[repo-safety] missing {cmd[0]}, skipping")
             continue
         print(f"[repo-safety] running: {' '.join(cmd)}")
-        failed += subprocess.run(cmd).returncode != 0
+        failed += subprocess.run(cmd).returncode != 0  # nosec
     return 1 if failed else 0
 
 if __name__ == "__main__":

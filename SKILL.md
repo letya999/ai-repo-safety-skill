@@ -33,14 +33,26 @@ Use this skill proactively when the user asks to:
 - prepare a Python project for public GitHub
 - clean up an exposed secret
 
+## Installation
+
+To run `ai-repo-safety` from any directory, install it as a tool using `uv`:
+
+```bash
+uv tool install --editable <path-to-ai-repo-safety-skill>
+```
+
+Alternatively, you can run it directly from its directory by passing the target path:
+
+```bash
+uv run ai-repo-safety <command> --target <path-to-target-repo>
+```
+
 ## Workflow
 
 1. Run environment check:
 
    ```bash
-   bash scripts/run_safety.sh doctor --agent-plan
-   # Or on Windows:
-   # powershell -File scripts/run_safety.ps1 doctor --agent-plan
+   uv run ai-repo-safety doctor --agent-plan
    ```
 
 2. If Git, Python 3.12, uv, or uvx are missing:
@@ -52,20 +64,20 @@ Use this skill proactively when the user asks to:
 3. Initialize safety assets:
 
    ```bash
-   bash scripts/run_safety.sh init --target . --python auto --github auto
+   uv run ai-repo-safety init --target . --python auto --github auto
    ```
 
 4. Install local hooks:
 
    ```bash
-   bash scripts/run_safety.sh install-hooks --target .
+   uv run ai-repo-safety install-hooks --target .
    pre-commit install
    ```
 
 5. Run scans:
 
    ```bash
-   bash scripts/run_safety.sh scan --target .
+   uv run ai-repo-safety scan --target .
    ```
 
 6. Fix obvious issues:
@@ -79,13 +91,13 @@ Use this skill proactively when the user asks to:
 7. Before push:
 
    ```bash
-   bash scripts/run_safety.sh prepush --target .
+   uv run ai-repo-safety prepush --target .
    ```
 
 8. Before reading GitHub issues, PRs, commits, branches, or merge request aliases into AI context:
 
    ```bash
-   bash scripts/run_safety.sh github-guard read --repo owner/repo --resource pulls --reason "review current PRs"
+   uv run ai-repo-safety github-guard read --repo owner/repo --resource pulls --reason "review current PRs"
    ```
 
 ## Practices this skill enforces

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import argparse
 import json
 import re
 from pathlib import Path
 from typing import Any
 
-from .util import git_origin, load_json, parse_github_repo_from_url, project_root, run_cmd, which
+from .util import git_origin, load_json, parse_github_repo_from_url, run_cmd, which
 
 SECRET_PATTERNS = [
     re.compile(r"ghp_[A-Za-z0-9_]{20,}"),

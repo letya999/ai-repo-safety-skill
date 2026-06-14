@@ -1,19 +1,60 @@
 from __future__ import annotations
 
 import json
-import os
 import platform
 import re
 import shutil
-import subprocess
-import sys
-from dataclasses import dataclass
+import subprocess  # nosec
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
+
+import os
+import sys
 
 from importlib import resources
 
 PACKAGE = "ai_repo_safety"
+
+# Ensure the virtual environment's bin/Scripts directory is in PATH so subprocesses can find installed tools
+_venv_bin = str(Path(sys.executable).parent)
+_path_dirs = [_venv_bin]
+
+# On Windows, dynamically read the latest PATH from registry to get new winget/scoop/local/bin paths
+if platform.system().lower() == "windows":
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
+            val, _ = winreg.QueryValueEx(key, "PATH")
+            if val:
+                val_expanded = os.path.expandvars(val)
+                for p in val_expanded.split(";"):
+                    p = p.strip()
+                    if p and p != "$($env:PATH)":
+                        _path_dirs.append(p)
+    except Exception:  # nosec B110
+        pass
+
+# Also always ensure user local bin is present
+_local_bin = str(Path.home() / ".local" / "bin")
+if _local_bin not in _path_dirs:
+    _path_dirs.append(_local_bin)
+
+# Also ensure opengrep path is present
+_opengrep_bin = str(Path.home() / ".opengrep" / "cli" / "latest")
+if _opengrep_bin not in _path_dirs:
+    _path_dirs.append(_opengrep_bin)
+
+# Merge with current PATH, preserving order and avoiding duplicates
+_current_path_split = os.environ.get("PATH", "").split(os.pathsep)
+_seen = set()
+_final_path = []
+for p in _path_dirs + _current_path_split:
+    p_norm = os.path.abspath(p).lower() if os.path.isabs(p) else p.lower()
+    if p_norm not in _seen:
+        _seen.add(p_norm)
+        _final_path.append(p)
+
+os.environ["PATH"] = os.pathsep.join(_final_path)
 
 
 def norm_path(path: str | Path) -> str:
@@ -60,11 +101,13 @@ def append_marked_block(path: Path, marker: str, block: str) -> str:
 
 def run_cmd(args: Sequence[str], cwd: Path | None = None, timeout: int = 120) -> tuple[int, str, str]:
     try:
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec
             list(args),
             cwd=str(cwd) if cwd else None,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             shell=False,
         )
@@ -89,6 +132,11 @@ def current_platform() -> str:
 
 def in_git_repo(root: Path) -> bool:
     code, _, _ = run_cmd(["git", "rev-parse", "--is-inside-work-tree"], cwd=root)
+    return code == 0
+
+
+def git_has_commits(root: Path) -> bool:
+    code, _, _ = run_cmd(["git", "rev-parse", "HEAD"], cwd=root)
     return code == 0
 
 

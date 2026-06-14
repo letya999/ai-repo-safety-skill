@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
 from . import __version__
-from .bootstrap import init_project
+from .bootstrap import init_project, setup_project
 from .github_guard import check_text, read_github, validate_request
 from .hooks import install_hooks
 from .incident import create as create_incident
 from .scanner import prepush, scan
 from .threat_model import generate as generate_threat_model
-from .tools import doctor, install_missing_python_tools
+from .tools import doctor
 from .util import project_root
 
 
@@ -23,8 +21,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("doctor", help="check Git/Python/uv/uvx/scanners and print agent install plan")
     p.add_argument("--agent-plan", action="store_true", help="always print agent install plan")
 
-    p = sub.add_parser("install-missing", help="install missing Python helper tools via uv tool install; system tools require official docs")
+    p = sub.add_parser("install-missing", help="Install missing Python and system tools")
     p.add_argument("--dry-run", action="store_true")
+
+    p = sub.add_parser("setup", help="setup everything: run fast scan, init, install tools, install hooks, run full scan and configure GitHub security")
+    p.add_argument("--target", default=".")
+    p.add_argument("--python", choices=["auto", "yes", "no"], default="auto")
+    p.add_argument("--github", choices=["auto", "yes", "no"], default="auto")
+    p.add_argument("--overwrite", action="store_true")
 
     p = sub.add_parser("init", help="apply repo safety assets")
     p.add_argument("--target", default=".")
@@ -78,13 +82,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    import sys
+    if sys.stdout.encoding.lower() != 'utf-8':
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+            sys.stderr.reconfigure(encoding='utf-8')
+        except AttributeError:
+            pass
+
     parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.cmd == "doctor":
         return doctor(agent_plan=args.agent_plan)
-    if args.cmd == "install-missing":
-        return install_missing_python_tools(dry_run=args.dry_run)
+    elif args.cmd == "install-missing":
+        from ai_repo_safety.tools import install_missing_tools
+        return install_missing_tools(dry_run=args.dry_run)
+    if args.cmd == "setup":
+        return setup_project(args.target, python=args.python, github=args.github, overwrite=args.overwrite)
     if args.cmd == "init":
         return init_project(args.target, python=args.python, github=args.github, overwrite=args.overwrite)
     if args.cmd == "install-hooks":
