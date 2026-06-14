@@ -3,7 +3,7 @@ name: supply-chain
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
   schedule:
     - cron: '0 4 * * 1'
 
@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run OSV-Scanner
-        uses: google/osv-scanner-action/osv-scanner-action@v2
+        uses: google/osv-scanner-action@v2
         with:
           scan-args: |-
             --recursive
@@ -24,7 +24,6 @@ jobs:
 
   python-deps:
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('**/requirements*.txt', '**/pyproject.toml') != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

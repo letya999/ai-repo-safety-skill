@@ -3,7 +3,7 @@ name: codeql-optional
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
   schedule:
     - cron: '0 3 * * 1'
 

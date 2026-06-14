@@ -65,6 +65,40 @@ ai-repo-safety threat-model --target .
 ai-repo-safety incident --target . --type secret-leak
 ```
 
+## AI Assistant Integrations
+
+To ensure your AI assistants (like Claude Code, Codex, OpenCode, and Cursor) follow these repository safety rules, you can integrate this skill using the following steps:
+
+### 1. Installing via `skills` CLI
+If you use a `skills` manager or custom CLI tool for orchestrating agent abilities, install the skill directly:
+```bash
+skills add git+https://github.com/letya999/ai-repo-safety-skill
+```
+This will place the `SKILL.md` and related guardrails into your agent workspace.
+
+### 2. Integration with AI Assistants & IDEs
+
+#### Claude Code (by Anthropic)
+Claude Code automatically scans and respects repository instructions. To make it aware of this safety skill:
+1. Place [AGENTS.md](AGENTS.md) in the root of your project directory.
+2. When starting a session, Claude Code reads root markdown instructions (like `AGENTS.md`) and strictly adheres to the forbidden actions and GitHub read guard policies.
+3. You can also reference the CLI directly in your prompt to enforce checks, e.g., `claude "run ai-repo-safety scan before committing"`.
+
+#### Codex CLI & OpenCode
+For CLI-based agents:
+1. Inject the rules by importing the skill or placing the `SKILL.md` in your agent's config folder.
+2. The agent will read `SKILL.md` as part of its system instructions, preventing it from performing direct `git push` or reading raw GitHub API responses without using `ai-repo-safety github-guard`.
+
+#### Cursor (IDE)
+Cursor uses `.cursorrules` to guide its Chat and Composer features:
+1. Create a `.cursorrules` file in the root of your repository (if it doesn't exist yet).
+2. Copy the content of [AGENTS.md](AGENTS.md) into your `.cursorrules` file or append a reference:
+   ```markdown
+   Always follow the repository safety guardrails defined in AGENTS.md.
+   Never run forbidden actions (like git push, public PR creation) without user confirmation.
+   ```
+3. Cursor's AI will automatically prioritize these instructions during code generation and terminal executions.
+
 ## Tool philosophy
 
 Default tools are free / OSS / community:
