@@ -36,7 +36,7 @@ docs/*
 # secrets and credentials
 .env
 .env.*
-!env.example
+!.env.example
 *.pem
 *.key
 *.crt
