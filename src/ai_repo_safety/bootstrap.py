@@ -67,6 +67,8 @@ def apply_universal(root: Path, *, overwrite: bool = False) -> list[str]:
         ("docs/incident-cleanup.md", "docs/incident-cleanup.md"),
         ("docs/git-history-cleanup.md", "docs/git-history-cleanup.md"),
         ("docs/mitigation-map.md", "docs/mitigation-map.md"),
+        ("docs/threat-model-template.md", "docs/threat-model.md"),
+        ("docs/opencode.md", "docs/opencode.md"),
     ]:
         path = root / dest
         if path.exists() and not overwrite and dest == ".pre-commit-config.yaml":
