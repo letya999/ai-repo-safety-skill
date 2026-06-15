@@ -70,10 +70,12 @@ def validate_request(root: Path, repo: str, resource: str, reason: str | None, l
     return True, "ok", requested_limit, resource
 
 
-def redact(text: str) -> str:
+def redact(text: str) -> tuple[str, int]:
+    count = 0
     for pattern in SECRET_PATTERNS:
-        text = pattern.sub("[REDACTED_SECRET]", text)
-    return text
+        text, n = pattern.subn("[REDACTED_SECRET]", text)
+        count += n
+    return text, count
 
 
 def has_prompt_injection(text: str) -> list[str]:
@@ -84,13 +86,28 @@ def has_prompt_injection(text: str) -> list[str]:
     return hits
 
 
-def sanitize_payload(payload: Any, *, max_body_chars: int, block_prompt_injection: bool) -> tuple[Any, list[str]]:
+DROP_FIELDS = {
+    "node_id", "gravatar_id", "site_admin", "performed_via_github_app", 
+    "author_association", "active_lock_reason", "state_reason"
+}
+
+def sanitize_payload(payload: Any, *, max_body_chars: int, block_prompt_injection: bool) -> tuple[Any, list[str], int]:
     warnings: list[str] = []
+    total_redactions = 0
 
     def walk(value: Any, path: str = "$") -> Any:
-        nonlocal warnings
+        nonlocal warnings, total_redactions
         if isinstance(value, dict):
-            return {k: walk(v, f"{path}.{k}") for k, v in value.items() if k not in {"body_html"}}
+            new_dict = {}
+            for k, v in value.items():
+                if k == "body_html":
+                    continue
+                if k.endswith("_url") and k != "html_url":
+                    continue
+                if k in DROP_FIELDS:
+                    continue
+                new_dict[k] = walk(v, f"{path}.{k}")
+            return new_dict
         if isinstance(value, list):
             return [walk(v, f"{path}[]") for v in value]
         if isinstance(value, str):
@@ -99,13 +116,14 @@ def sanitize_payload(payload: Any, *, max_body_chars: int, block_prompt_injectio
                 warnings.append(f"prompt-injection-like text at {path}")
                 if block_prompt_injection:
                     return "[BLOCKED_PROMPT_INJECTION_LIKE_TEXT]"
-            value = redact(value)
+            value, count = redact(value)
+            total_redactions += count
             if len(value) > max_body_chars:
                 return value[:max_body_chars] + "...[TRUNCATED]"
             return value
         return value
 
-    return walk(payload), warnings
+    return walk(payload), warnings, total_redactions
 
 
 def read_github(root: Path, repo: str, resource: str, reason: str | None, limit: int | None, allow_prompt_risk: bool) -> int:
@@ -127,7 +145,7 @@ def read_github(root: Path, repo: str, resource: str, reason: str | None, limit:
         print("[github-guard] ERROR: gh returned non-JSON output")
         return 1
     policy = load_policy(root)
-    sanitized, warnings = sanitize_payload(
+    sanitized, warnings, redactions = sanitize_payload(
         payload,
         max_body_chars=int(policy.get("max_body_chars", 20000)),
         block_prompt_injection=policy.get("block_prompt_injection_patterns", True) and not allow_prompt_risk,
@@ -138,6 +156,7 @@ def read_github(root: Path, repo: str, resource: str, reason: str | None, limit:
         "reason": reason,
         "items_requested": effective_limit,
         "warnings": warnings,
+        "redacted_secrets_count": redactions,
         "data": sanitized,
     }
     print(json.dumps(result, indent=2, ensure_ascii=False))
@@ -148,15 +167,43 @@ def read_github(root: Path, repo: str, resource: str, reason: str | None, limit:
 
 def check_text(root: Path, file: str | None, text: str | None) -> int:
     if file:
-        raw = Path(file).read_text(encoding="utf-8", errors="replace")
+        # Reject paths that escape the target root. This prevents
+        # an agent from using ai-repo-safety github-guard check-text
+        # to exfiltrate /etc/passwd or another host file the user
+        # did not intend to scan.
+        root_resolved = Path(root).resolve()
+        candidate = (root_resolved / file).resolve()
+        try:
+            candidate.relative_to(root_resolved)
+        except ValueError:
+            result = {
+                "prompt_injection_like": False,
+                "patterns": [],
+                "redacted_text": "",
+                "error": f"path escapes target root: {file}",
+            }
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 4
+        try:
+            raw = candidate.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            result = {
+                "prompt_injection_like": False,
+                "patterns": [],
+                "redacted_text": "",
+                "error": f"could not read file: {exc}",
+            }
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 2
     else:
         raw = text or ""
-    clean = redact(raw)
+    clean, count = redact(raw)
     hits = has_prompt_injection(clean)
     result = {
         "prompt_injection_like": bool(hits),
         "patterns": hits,
         "redacted_text": clean,
+        "redacted_secrets_count": count,
     }
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 1 if hits else 0

@@ -5,6 +5,17 @@
   "labels": ["dependencies", "security"],
   "packageRules": [
     {
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "description": "Group all GitHub Actions updates so they ship together.",
+      "automerge": false
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchDepTypes": ["action"],
+      "pinDigests": true
+    },
+    {
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "automerge": false
     }

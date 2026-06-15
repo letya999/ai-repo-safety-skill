@@ -123,12 +123,26 @@ def doctor(*, agent_plan: bool = False) -> int:
 
 
 
-def install_missing_tools(*, dry_run: bool = False) -> int:
-    """Install Python helper tools and System binaries."""
+def install_missing_tools(*, dry_run: bool = False, yes: bool = False) -> int:
+    """Install Python helper tools and System binaries.
+
+    Safety posture: this function never mutates the host system
+    unless the caller passes yes=True. The legacy dry_run=True
+    flag is preserved for backward compatibility with the
+    `install-missing --dry-run` CLI alias.
+    """
     from pathlib import Path
-    
+
+    if not yes and not dry_run:
+        print(
+            "[repo-safety] refusing to install tools without explicit --yes. "
+            "Use --dry-run to print the plan, or --yes to perform the install."
+        )
+        return 2
+
     is_win = is_windows()
     failures = 0
+    apply = yes and not dry_run
 
     if not which("uv"):
         print("[repo-safety] uv is missing; cannot install Python tools. Run doctor and install uv first.")
@@ -139,8 +153,8 @@ def install_missing_tools(*, dry_run: bool = False) -> int:
                 print(f"[repo-safety] {command} already installed")
                 continue
             args = install_cmd.split()
-            print(f"[repo-safety] {'would run' if dry_run else 'running'}: {install_cmd}")
-            if not dry_run:
+            print(f"[repo-safety] {'would run' if not apply else 'running'}: {install_cmd}")
+            if apply:
                 code, out, err = run_cmd(args, timeout=600)
                 if out:
                     print(out.rstrip())
