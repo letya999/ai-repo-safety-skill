@@ -8,7 +8,6 @@ import re
 import shutil
 import subprocess  # nosec
 import sys
-import warnings
 from importlib import resources
 from pathlib import Path
 from typing import Sequence

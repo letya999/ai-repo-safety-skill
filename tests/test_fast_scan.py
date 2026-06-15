@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 from ai_repo_safety.fast_scan import (
     ALLOWLIST_PRAGMA_RE,
     FORBIDDEN_PATTERNS,
-    _is_template_placeholder_path,
     scan_directory,
 )
 
