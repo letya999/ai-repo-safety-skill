@@ -61,8 +61,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--github", choices=["auto", "yes", "no"], default="auto")
     p.add_argument("--overwrite", action="store_true")
 
-    p = sub.add_parser("install-hooks", help="install Git pre-push hook")
+    p = sub.add_parser("install-hooks", help="install Git pre-push hook (refuses to overwrite existing unmanaged hooks)")
     p.add_argument("--target", default=".")
+    p.add_argument(
+        "--chain",
+        action="store_true",
+        help="keep any existing pre-push hook and append a managed block after it",
+    )
+    p.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace any existing pre-push hook with the managed one",
+    )
+    p.add_argument(
+        "--hooks-path",
+        default=None,
+        help="custom hooks directory (defaults to .git/hooks)",
+    )
 
     p = sub.add_parser("scan", help="run available local scans")
     p.add_argument("--target", default=".")
@@ -147,7 +162,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "init":
         return init_project(args.target, python=args.python, github=args.github, overwrite=args.overwrite)
     if args.cmd == "install-hooks":
-        return install_hooks(args.target)
+        return install_hooks(
+            args.target,
+            overwrite=args.overwrite,
+            chain=args.chain,
+            hooks_path=args.hooks_path,
+        )
     if args.cmd == "scan":
         return scan(args.target, strict=args.strict)
     if args.cmd == "prepush":
