@@ -23,7 +23,7 @@ jobs:
       - name: install python
         run: uv python install ${{ matrix.python-version }}
       - name: run pytest
-        run: uv run --python ${{ matrix.python-version }} pytest -q
+        run: uv run --extra dev --python ${{ matrix.python-version }} pytest -q
       - name: ruff check
         run: uvx ruff check .
       - name: bandit
