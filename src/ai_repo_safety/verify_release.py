@@ -136,6 +136,56 @@ def check_no_lit_wildcard_mutable_refs(root: Path) -> str | None:
     return None
 
 
+def check_package_json_engines(root: Path) -> str | None:
+    """Refuse to release if package.json does not declare
+    engine floors compatible with the project's release pipeline.
+    The trusted-publishing flow on PyPI and npm requires Python
+    3.12+ for uv build, Node 22.14+ and npm 11.5.1+ for the npm
+    publish workflow, and Node 18+ for the wrapper itself. We
+    require these as a documentation floor in engines so that
+    downstream consumers also know the minimum runtime."""
+    package_json = root / "package.json"
+    if not package_json.exists():
+        return None
+    try:
+        pkg = json.loads(package_json.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return f"package.json is not valid JSON: {exc}"
+    engines = pkg.get("engines")
+    if not isinstance(engines, dict):
+        return "package.json does not declare an 'engines' object"
+    node = engines.get("node", "")
+    npm = engines.get("npm", "")
+    issues: list[str] = []
+    if not node:
+        issues.append("engines.node is missing")
+    if not npm:
+        issues.append("engines.npm is missing")
+    if issues:
+        return "; ".join(issues)
+    return None
+
+
+def check_codeowners_present(root: Path) -> str | None:
+    """The GitHub secure-use reference (June 2026) recommends
+    CODEOWNERS for `.github/workflows/` so that changes to
+    workflow files require explicit review by the security
+    maintainer. This is the social complement to the SHA-pinning
+    convention we already enforce. A release should not ship
+    without CODEOWNERS in place."""
+    codeowners = root / ".github" / "CODEOWNERS"
+    if not codeowners.exists():
+        return ".github/CODEOWNERS is missing"
+    text = codeowners.read_text(encoding="utf-8")
+    if "/.github/workflows/" not in text and "/.github/workflows" not in text:
+        return (
+            ".github/CODEOWNERS exists but does not mention "
+            ".github/workflows/; workflow changes would not require "
+            "an explicit security maintainer review"
+        )
+    return None
+
+
 def verify_release(
     target: str | Path,
     expected_version: str,
@@ -151,6 +201,8 @@ def verify_release(
         ("scripts/smoke-wheel.sh present", lambda: check_wheel_smoke_script_present(root)),
         ("scripts/check-package-artifacts.py present", lambda: check_artifact_manifest_script_present(root)),
         ("bin/cli.js no @latest, exact pin spec", lambda: check_npm_wrapper_no_latest(root)),
+        ("package.json declares node and npm engines floors", lambda: check_package_json_engines(root)),
+        (".github/CODEOWNERS gates .github/workflows/ changes", lambda: check_codeowners_present(root)),
     ]
     if not skip_build:
         checks.append(
