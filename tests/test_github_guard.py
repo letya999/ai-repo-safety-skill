@@ -1,17 +1,13 @@
+# pragma: allowlist secret
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 from ai_repo_safety.cli import main
 from ai_repo_safety.github_guard import (
-    PROMPT_INJECTION_PATTERNS,
-    SECRET_PATTERNS,
-    check_text,
     has_prompt_injection,
     normalize_resource,
-    read_github,
     redact,
     sanitize_payload,
     validate_request,
