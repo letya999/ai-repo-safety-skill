@@ -16,7 +16,7 @@ from ai_repo_safety.verify_release import (
 
 
 def test_version_consistency_passes_for_current_tree() -> None:
-    assert check_version_consistency(Path("."), "0.1.3") is None
+    assert check_version_consistency(Path("."), "0.1.4") is None
 
 
 def test_version_consistency_fails_on_mismatch(tmp_path: Path) -> None:
