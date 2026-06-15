@@ -40,6 +40,11 @@ npx skills add letya999/ai-repo-safety-skill -a claude-code
 
 ## Install the CLI
 
+Package pages:
+
+- npm: [https://www.npmjs.com/package/ai-repo-safety](https://www.npmjs.com/package/ai-repo-safety)
+- PyPI: [https://pypi.org/project/ai-repo-safety/](https://pypi.org/project/ai-repo-safety/)
+
 **Via uv/uvx (recommended):**
 
 ```bash
