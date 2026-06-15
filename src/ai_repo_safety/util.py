@@ -137,7 +137,20 @@ def run_cmd(args: Sequence[str], cwd: Path | None = None, timeout: int = 120) ->
     except FileNotFoundError as exc:
         return 127, "", str(exc)
     except subprocess.TimeoutExpired as exc:
-        return 124, exc.stdout or "", exc.stderr or f"Timeout after {timeout}s"
+        # TimeoutExpired.stdout/stderr may be bytes or str; we
+        # always decode to str to keep the return type stable.
+        def _decode(value: object) -> str:
+            if isinstance(value, bytes):
+                return value.decode("utf-8", errors="replace")
+            if isinstance(value, str):
+                return value
+            return ""
+
+        return (
+            124,
+            _decode(getattr(exc, "stdout", b"")),
+            _decode(getattr(exc, "stderr", b"")) or f"Timeout after {timeout}s",
+        )
 
 
 def which(name: str) -> str | None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 
 from .util import (
@@ -89,7 +90,7 @@ def apply_universal(root: Path, *, overwrite: bool = False) -> list[str]:
         actions.append(f"installed scripts/security/{name}")
 
     policy_path = root / ".repo-safety.json"
-    policy = DEFAULT_POLICY.copy()
+    policy = copy.deepcopy(DEFAULT_POLICY)
     current_repo = parse_github_repo_from_url(git_origin(root))
     if current_repo:
         policy["github_read_guard"]["allowed_repositories"] = [current_repo]
@@ -217,11 +218,12 @@ def configure_github_repo_security(root: Path) -> bool:
         }
     }
     
+    temp_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(payload, f)
             temp_path = Path(f.name)
-            
+
         code, out, err = run_cmd(["gh", "api", "-X", "PATCH", f"repos/{repo}", "--input", str(temp_path)])
         if code == 0:
             print("[github-security] Successfully enabled Secret Scanning and Push Protection on GitHub.")
@@ -237,11 +239,11 @@ def configure_github_repo_security(root: Path) -> bool:
         print(f"[github-security] Error configuring security: {e}")
         return False
     finally:
-        try:
-            if 'temp_path' in locals() and temp_path.exists():
+        if temp_path is not None and temp_path.exists():
+            try:
                 temp_path.unlink()
-        except Exception:  # nosec B110
-            pass
+            except Exception:  # nosec B110
+                pass
 
 
 def print_remediation_guidelines(findings: list[dict]) -> None:
@@ -341,19 +343,27 @@ def setup_project(
     else:
         print("[OK] Fast local scan passed. No immediate issues found.")
 
-    print("\n[Step 2/6] Initializing repository safety assets...")
-    init_project(root, python=python, github=github, overwrite=overwrite)
-
     if mode == "plan":
+        # Read-only plan. We do not call init_project here; that
+        # would mutate the target. The user is expected to run
+        # `ai-repo-safety init --target .` separately, then
+        # `setup --apply --yes` for the rest.
+        print(
+            "\n[Step 2/6] Would initialize repository safety assets: "
+            "SKIPPED (plan mode; run `ai-repo-safety init --target .` to apply)"
+        )
         print("\n[Step 3/6] Would install missing tools: SKIPPED (plan mode)")
         print("\n[Step 4/6] Would install git hooks: SKIPPED (plan mode)")
         print("\n[Step 5/6] Would run full security scans: SKIPPED (plan mode)")
         print("\n[Step 6/6] Would configure GitHub repository security: SKIPPED (plan mode)")
         print(
-            "\nRe-run with --apply --yes to perform the optional steps. "
+            "\nPlan complete. Re-run with --apply --yes to perform the optional steps. "
             "Use --install-tools, --configure-github, --run-hooks to opt in individually."
         )
         return 0
+
+    print("\n[Step 2/6] Initializing repository safety assets...")
+    init_project(root, python=python, github=github, overwrite=overwrite)
 
     if not yes:
         print(

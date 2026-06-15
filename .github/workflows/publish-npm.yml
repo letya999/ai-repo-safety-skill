@@ -20,14 +20,9 @@ jobs:
       - name: upgrade npm
         run: npm install -g npm@^11.10.0
       - name: verify npm auth via Trusted Publishing dry-run
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "::warning::NPM_TOKEN secret is set but publish should use Trusted Publishing; remove the secret after migration."
-          else
-            echo "NPM_TOKEN secret absent; using OIDC Trusted Publishing."
-          fi
+          echo "NPM publish uses OIDC Trusted Publishing; no long-lived token is read."
+          echo "Configure the npm trusted publisher for this repository + workflow file + environment before merging."
       - name: verify package version matches tag
         run: |
           TAG="${GITHUB_REF_NAME#v}"

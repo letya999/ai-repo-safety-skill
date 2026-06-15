@@ -22,8 +22,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("doctor", help="check Git/Python/uv/uvx/scanners and print agent install plan")
     p.add_argument("--agent-plan", action="store_true", help="always print agent install plan")
 
-    p = sub.add_parser("install-missing", help="Install missing Python and system tools")
+    p = sub.add_parser("install-missing", help="[deprecated alias for install-tools] Install missing Python and system tools")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument(
+        "--yes",
+        action="store_true",
+        help="required confirmation flag for any actual install",
+    )
 
     p = sub.add_parser("setup", help="plan and optionally apply repo safety bootstrap (plan-only by default)")
     p.add_argument("--target", default=".")
@@ -83,6 +88,21 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("scan", help="run available local scans")
     p.add_argument("--target", default=".")
     p.add_argument("--strict", action="store_true", help="missing recommended scanners fail the run")
+    p.add_argument(
+        "--offline",
+        action="store_true",
+        help="skip network-required tools (e.g. pip-audit) instead of failing",
+    )
+    p.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the scan result as JSON on stdout",
+    )
+    p.add_argument(
+        "--sarif",
+        action="store_true",
+        help="emit the scan result as SARIF 2.1.0 on stdout",
+    )
 
     p = sub.add_parser("prepush", help="run pre-push gate")
     p.add_argument("--target", default=".")
@@ -100,6 +120,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", default=".")
     p.add_argument("--version", required=True, help="expected release version, e.g. 0.1.4")
     p.add_argument("--skip-build", action="store_true", help="do not run uv build")
+
+    p = sub.add_parser("sbom", help="generate a CycloneDX SBOM (requires cyclonedx-py)")
+    p.add_argument("--target", default=".")
+    p.add_argument(
+        "--format",
+        choices=["cyclonedx-json", "cyclonedx-xml"],
+        default="cyclonedx-json",
+    )
+    p.add_argument("--output", default="sbom.cdx.json", help="output file path")
+    p.add_argument(
+        "--scope",
+        choices=["project", "environment"],
+        default="project",
+        help="what to inventory: project metadata or full Python env",
+    )
 
     gh = sub.add_parser("github-guard", help="guard reads of GitHub commits/PRs/branches/issues")
     gh_sub = gh.add_subparsers(dest="gh_cmd", required=True)
@@ -140,8 +175,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if sys.stdout.encoding.lower() != 'utf-8':
         try:
-            sys.stdout.reconfigure(encoding='utf-8')
-            sys.stderr.reconfigure(encoding='utf-8')
+            # Python 3.7+ on TextIOWrapper exposes reconfigure; on
+            # older streams or in stub type-checker environments
+            # the attribute is missing. We attempt and ignore.
+            sys.stdout.reconfigure(encoding='utf-8')  # type: ignore[attr-defined]
+            sys.stderr.reconfigure(encoding='utf-8')  # type: ignore[attr-defined]
         except AttributeError:
             pass
 
@@ -152,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
         return doctor(agent_plan=args.agent_plan)
     elif args.cmd == "install-missing":
         from ai_repo_safety.tools import install_missing_tools
-        return install_missing_tools(dry_run=args.dry_run)
+        return install_missing_tools(dry_run=args.dry_run, yes=args.yes)
     if args.cmd == "setup":
         return setup_project(
             args.target,
@@ -175,7 +213,16 @@ def main(argv: list[str] | None = None) -> int:
             hooks_path=args.hooks_path,
         )
     if args.cmd == "scan":
-        return scan(args.target, strict=args.strict)
+        if args.json or args.sarif:
+            from .scan_output import emit_scan
+
+            return emit_scan(
+                args.target,
+                strict=args.strict,
+                offline=args.offline,
+                sarif=args.sarif,
+            )
+        return scan(args.target, strict=args.strict, offline=args.offline)
     if args.cmd == "prepush":
         return prepush(args.target)
     if args.cmd == "threat-model":
@@ -187,6 +234,15 @@ def main(argv: list[str] | None = None) -> int:
             args.target,
             args.version,
             skip_build=args.skip_build,
+        )
+    if args.cmd == "sbom":
+        from .sbom import generate_sbom
+
+        return generate_sbom(
+            target=args.target,
+            output=args.output,
+            fmt=args.format,
+            scope=args.scope,
         )
     if args.cmd == "github-guard":
         root = project_root(args.target)
