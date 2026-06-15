@@ -9,6 +9,8 @@ PRE_PUSH_POSIX = '''#!/usr/bin/env sh
 set -eu
 if command -v ai-repo-safety >/dev/null 2>&1; then
   ai-repo-safety prepush --target .
+elif command -v uv >/dev/null 2>&1 && [ -f pyproject.toml ]; then
+  uv run ai-repo-safety prepush --target .
 elif command -v uvx >/dev/null 2>&1; then
   uvx ai-repo-safety prepush --target .
 elif [ -f scripts/security/prepush.py ]; then
@@ -23,6 +25,11 @@ PRE_PUSH_WINDOWS = '''@echo off
 where ai-repo-safety >nul 2>nul
 if %ERRORLEVEL%==0 (
   ai-repo-safety prepush --target .
+  exit /b %ERRORLEVEL%
+)
+where uv >nul 2>nul
+if %ERRORLEVEL%==0 if exist pyproject.toml (
+  uv run ai-repo-safety prepush --target .
   exit /b %ERRORLEVEL%
 )
 where uvx >nul 2>nul
