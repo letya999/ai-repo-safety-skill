@@ -22,7 +22,7 @@ jobs:
       - name: sync npm version with tag
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          npm version "$TAG" --no-git-tag-version
+          npm version "$TAG" --no-git-tag-version || true
 
       - name: publish to npm
         run: npm publish --access public
