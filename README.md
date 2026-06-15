@@ -1,8 +1,10 @@
 # AI Repo Safety Skill
 
-[![skills.sh](https://skills.sh/b/letya999/ai-repo-safety-skill)](https://skills.sh/letya999/ai-repo-safety-skill)
-[![PyPI](https://img.shields.io/pypi/v/ai-repo-safety)](https://pypi.org/project/ai-repo-safety/)
-[![npm](https://img.shields.io/npm/v/ai-repo-safety)](https://www.npmjs.com/package/ai-repo-safety)
+Package links:
+
+- skill: [https://skills.sh/letya999/ai-repo-safety-skill](https://skills.sh/letya999/ai-repo-safety-skill)
+- PyPI: [https://pypi.org/project/ai-repo-safety/](https://pypi.org/project/ai-repo-safety/)
+- npm: [https://www.npmjs.com/package/ai-repo-safety](https://www.npmjs.com/package/ai-repo-safety)
 
 One powerful public skill + asset repository for hardening AI/vibe-coded projects before commit, before push, and before publishing on GitHub.
 
