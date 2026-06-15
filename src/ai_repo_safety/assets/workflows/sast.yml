@@ -21,7 +21,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install bandit ruff pip-audit
       - name: Bandit
-        run: bandit -q -r . -x tests,.venv,venv
+        run: bandit -q -r src -x tests,.venv,venv
       - name: Ruff
         run: ruff check .
       - name: pip-audit

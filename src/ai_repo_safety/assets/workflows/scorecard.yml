@@ -15,6 +15,7 @@ permissions:
 jobs:
   scorecard:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.repository.private }}
     steps:
       - name: OpenSSF Scorecard
         uses: ossf/scorecard-action@v2.4.0
