@@ -3,7 +3,70 @@
 All notable changes to this project will be documented in this
 file. Versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [Unreleased] — June 2026 audit follow-up
+
+### Fixed
+- The `ai-repo-safety sbom` command previously invoked
+  `cyclonedx-py project`, which is not a real subcommand of
+  `cyclonedx-bom` v7.3.0 (March 2026). The command now dispatches
+  to the documented subcommands `environment`, `requirements`,
+  `pipenv`, or `poetry`. The default scope changed from
+  `project` to `environment`. The PyPI package name is
+  `cyclonedx-bom`; the installed binary keeps the historical
+  name `cyclonedx-py`.
+- `index.js` is now a documented no-op proxy (`module.exports =
+  {}`) that satisfies `package.json.main` for `npm ls` and
+  IDEs without misleading consumers into believing there is a
+  Node API.
+- `package.json` now declares the runtime floors that the
+  June 2026 npm Trusted Publishing reference requires:
+  `engines.node: ">=18"` and `engines.npm: ">=11.5.1"`. The
+  publish workflow continues to use Node 22.14.0 explicitly.
+- The asset template `assets/scripts/github_read_guard.py`
+  (a 4-line placeholder) and `assets/scripts/scan_secrets.py`
+  (referenced by no other code path) have been removed. The
+  `bootstrap.apply_universal` script list is now exactly
+  `forbid_sensitive_files.py`, `prepush.py`, and
+  `scan_mcp_config.py`.
+
+### Added
+- `.github/CODEOWNERS` gates changes to `.github/workflows/`,
+  `src/ai_repo_safety/assets/**`, `renovate.json`, `AGENTS.md`,
+  `SECURITY.md`, `CHANGELOG.md`, and a default catch-all. This
+  is the social complement to the SHA-pinning convention that
+  was already in place; the placeholder `@letya999/maintainers`
+  must be replaced with the actual team or user handles before
+  the maintainer merges their first workflow change.
+- `package.json` `scripts.pack:check` and `scripts.smoke:bin`
+  for local npm verification.
+- `docs/release-checklist.md` is a 10-step manual procedure the
+  maintainer follows at release time. It covers local
+  pre-flight, CI green, PyPI and npm Trusted Publisher
+  configuration, GitHub branch protection, signed tag and
+  push, and post-release verification. Most steps are
+  complemented by the automated `ai-repo-safety verify-release`
+  command.
+
+### Changed
+- `publish-pypi.yml` now uses `uv build --no-sources` per the
+  uv documentation recommendation for release builds, so the
+  wheel builds identically under `pypa/build` and any other
+  backend.
+- `publish-npm.yml` now disables
+  `actions/setup-node package-manager-cache` in release builds
+  per the npm documentation recommendation that release builds
+  never use the package-manager cache.
+- `verify-release` now performs 10 checks instead of 8, adding
+  `package.json declares node and npm engines floors` and
+  `.github/CODEOWNERS gates .github/workflows/ changes`. The
+  exit code contract is unchanged.
+- `renovate.json` now groups GitHub Actions updates into a
+  single PR (`groupName: "github-actions"`) and explicitly
+  enables `pinDigests: true` for action dependencies. The
+  `automerge: false` policy is preserved so the maintainer
+  reviews dependency bumps manually.
+
+## [Unreleased] — Phase 1 emergency release repair
 
 ### Fixed
 - Wheel and sdist artifacts now include every asset template the

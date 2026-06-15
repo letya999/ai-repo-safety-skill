@@ -34,8 +34,10 @@ uv.lock
 /tests/test_security_basics.py
 /scripts/security/
 
-# Generated docs (keep docs/tooling.md in git)
+# Generated docs (keep docs/tooling.md and docs/release-checklist.md in git)
 docs/*
+!docs/tooling.md
+!docs/release-checklist.md
 !docs/tooling.md
 
 # >>> AI REPO SAFETY >>>
