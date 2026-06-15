@@ -79,6 +79,63 @@ def test_package_json_declares_runtime_engines() -> None:
     assert engines.get("npm"), "engines.npm must be a non-empty string"
 
 
+def test_index_js_is_a_valid_noop_proxy() -> None:
+    """`package.json.main` is `index.js`. The file must be a
+    valid CommonJS module that does not throw on `require` and
+    exposes an empty object (a documented no-op proxy: the CLI is
+    in Python, not Node)."""
+    import json
+    import subprocess  # nosec
+
+    package = json.loads(Path("package.json").read_text(encoding="utf-8"))
+    assert package.get("main") == "index.js", (
+        f"package.json.main is {package.get('main')!r}; expected 'index.js'"
+    )
+    assert Path("index.js").exists(), "index.js is missing despite being listed as main"
+    # Simpler: just verify the file is loadable as CommonJS via node.
+    node_test = subprocess.run(  # nosec
+        ["node", "-e",
+         "const m = require('./index.js'); "
+         "if (typeof m !== 'object' || m === null) process.exit(1); "
+         "if (Array.isArray(m)) process.exit(2); "
+         "if (Object.keys(m).length !== 0) process.exit(3);"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert node_test.returncode == 0, (
+        f"index.js proxy check failed: {node_test.returncode}\n"
+        f"stdout: {node_test.stdout}\n"
+        f"stderr: {node_test.stderr}"
+    )
+
+
+def test_package_json_bin_field_points_to_existing_file() -> None:
+    """The `bin` field maps the command name to a relative path
+    under the package root. The file must exist and be marked
+    executable so that `npm install -g` creates a working shim.
+    """
+    import json
+    import stat
+
+    package = json.loads(Path("package.json").read_text(encoding="utf-8"))
+    bin_field = package.get("bin")
+    assert isinstance(bin_field, dict), "package.json must declare a 'bin' object"
+    for cmd, rel_path in bin_field.items():
+        full = Path(rel_path)
+        assert full.exists(), f"bin entry {cmd!r} → {rel_path!r}: file does not exist"
+        assert full.is_file(), f"bin entry {cmd!r} → {rel_path!r}: not a regular file"
+        mode = full.stat().st_mode
+        # The POSIX executable bit is what npm/Unix shims rely on.
+        # The bit is not present on Windows; the test is allowed
+        # to skip there via xfail; in this project we only test on
+        # POSIX CI hosts.
+        assert mode & stat.S_IXUSR, (
+            f"bin entry {cmd!r} → {rel_path!r}: user-executable bit is not set; "
+            "the npm shim will fail with EACCES on install"
+        )
+
+
 def test_source_tree_version_falls_back_safely() -> None:
     # Without a built/installed distribution, importlib.metadata raises
     # PackageNotFoundError. The package must surface a clearly non-semver
