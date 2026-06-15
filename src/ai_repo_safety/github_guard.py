@@ -148,7 +148,34 @@ def read_github(root: Path, repo: str, resource: str, reason: str | None, limit:
 
 def check_text(root: Path, file: str | None, text: str | None) -> int:
     if file:
-        raw = Path(file).read_text(encoding="utf-8", errors="replace")
+        # Reject paths that escape the target root. This prevents
+        # an agent from using ai-repo-safety github-guard check-text
+        # to exfiltrate /etc/passwd or another host file the user
+        # did not intend to scan.
+        root_resolved = Path(root).resolve()
+        candidate = (root_resolved / file).resolve()
+        try:
+            candidate.relative_to(root_resolved)
+        except ValueError:
+            result = {
+                "prompt_injection_like": False,
+                "patterns": [],
+                "redacted_text": "",
+                "error": f"path escapes target root: {file}",
+            }
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 4
+        try:
+            raw = candidate.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            result = {
+                "prompt_injection_like": False,
+                "patterns": [],
+                "redacted_text": "",
+                "error": f"could not read file: {exc}",
+            }
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 2
     else:
         raw = text or ""
     clean = redact(raw)
