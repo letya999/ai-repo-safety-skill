@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          enable-cache: true
+      - name: install python
+        run: uv python install ${{ matrix.python-version }}
+      - name: run pytest
+        run: uv run --python ${{ matrix.python-version }} pytest -q
+      - name: ruff check
+        run: uvx ruff check .
+      - name: bandit
+        run: uvx bandit -q -r src -x tests || true
+
+  package-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          enable-cache: true
+      - name: build
+        run: uv build
+      - name: twine check
+        run: uvx twine check dist/*
+      - name: artifact manifest check
+        run: python scripts/check-package-artifacts.py
+      - name: installed-wheel smoke
+        run: bash scripts/smoke-wheel.sh
+
+  npm-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '22.14.0'
+      - name: npm pack dry-run
+        run: npm pack --dry-run
+      - name: npm wrapper does not use @latest
+        run: |
+          ! grep -q "@latest" bin/cli.js
+      - name: npm wrapper pins to package.json version
+        run: |
+          test -n "$(grep 'ai-repo-safety==\${version}' bin/cli.js)"
