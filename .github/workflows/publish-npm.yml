@@ -7,35 +7,53 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  publish:
+  pack-smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: '20'
+          node-version: '22.14.0'
           registry-url: 'https://registry.npmjs.org'
-
-      - name: verify npm auth configuration
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Per npm docs June 2026: never use caching in release builds.
+          package-manager-cache: false
+      - name: upgrade npm
+        run: npm install -g npm@^11.10.0
+      - name: verify npm auth via Trusted Publishing dry-run
         run: |
-          if [ -z "${NODE_AUTH_TOKEN}" ]; then
-            echo "::error::GitHub secret NPM_TOKEN is missing."
-            exit 1
-          fi
-          npm whoami
-
-      - name: sync npm version with tag
+          echo "NPM publish uses OIDC Trusted Publishing; no long-lived token is read."
+          echo "Configure the npm trusted publisher for this repository + workflow file + environment before merging."
+      - name: verify package version matches tag
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          npm version "$TAG" --no-git-tag-version || true
+          node -e "const p=require('./package.json'); if (p.version !== process.argv[1]) { process.exit(1) }" "$TAG"
+      - name: npm pack dry-run
+        run: npm pack --dry-run
 
+  publish:
+    needs: pack-smoke
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write  # required for npm Trusted Publishing (OIDC)
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '22.14.0'
+          registry-url: 'https://registry.npmjs.org'
+          # Per npm docs June 2026: never use caching in release builds.
+          package-manager-cache: false
+      - name: upgrade npm
+        run: npm install -g npm@^11.10.0
       - name: publish to npm
-        run: npm publish --access public --provenance
+        run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # The registry-url above causes setup-node to issue a
+          # short-lived OIDC token automatically. Do not set
+          # NODE_AUTH_TOKEN; if it is set, npm will prefer it and
+          # the OIDC flow will not be used.
+          NODE_AUTH_TOKEN: ""

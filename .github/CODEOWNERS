@@ -1,0 +1,39 @@
+# CODEOWNERS for letya999/ai-repo-safety-skill
+#
+# GitHub CODEOWNERS gates pull-request approvals to the listed
+# teams/users for the matched paths. See
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# This file is the social complement to the SHA-pinning convention
+# used in .github/workflows/*.yml: even if a SHA pin is correct,
+# a malicious or careless change to a workflow file should require
+# explicit review by the security maintainer before it can land.
+#
+# Replace @letya999/maintainers below with the actual team slug
+# or user handles that the maintainer wants to gate on. The
+# placeholder string intentionally fails closed (no matching
+# owners) so that the file does not silently grant ownership to
+# the wrong account.
+
+# All workflow files must be reviewed by the security maintainer.
+/.github/workflows/   @letya999/maintainers
+/.github/actions/      @letya999/maintainers
+
+# Security-sensitive generated assets that ship inside the wheel.
+/src/ai_repo_safety/assets/templates/  @letya999/maintainers
+/src/ai_repo_safety/assets/rules/        @letya999/maintainers
+/src/ai_repo_safety/assets/scripts/     @letya999/maintainers
+/src/ai_repo_safety/assets/agents/      @letya999/maintainers
+
+# Pre-commit, Renovate, and OpenCode configuration are security
+# load-bearing; require the same review.
+/.pre-commit-config.ai-repo-safety.yaml  @letya999/maintainers
+/renovate.json                          @letya999/maintainers
+/AGENTS.md                              @letya999/maintainers
+/SECURITY.md                            @letya999/maintainers
+/CHANGELOG.md                           @letya999/maintainers
+
+# Default catch-all so any file the maintainer adds later also
+# requires explicit ownership. Loosen this to a public team if
+# outside contributions become common.
+/*   @letya999/maintainers

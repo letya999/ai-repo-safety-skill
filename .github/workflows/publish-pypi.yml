@@ -7,37 +7,52 @@ on:
 
 permissions:
   contents: read
-  id-token: write  # required for PyPI trusted publishing (OIDC)
 
 jobs:
-  build:
+  build-and-smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
         with:
           enable-cache: true
-
       - name: build
-        run: uv build
-
-      - uses: actions/upload-artifact@v4
+        # --no-sources: per uv docs, release builds should ignore
+        # [tool.uv.sources] so the wheel builds the same way under
+        # pypa/build and any other backend the consumer might use.
+        run: uv build --no-sources
+      - name: twine check
+        run: uvx twine check dist/*
+      - name: install-wheel smoke
+        run: |
+          python -m venv /tmp/smoke
+          /tmp/smoke/bin/pip install --quiet --no-index --find-links dist ai-repo-safety
+          /tmp/smoke/bin/ai-repo-safety --version
+          /tmp/smoke/bin/ai-repo-safety init --target /tmp/smoke-target --python yes --github no
+          test -f /tmp/smoke-target/AGENTS.md
+          test -f /tmp/smoke-target/SECURITY.md
+          test -f /tmp/smoke-target/bandit.yaml
+          test -f /tmp/smoke-target/pyproject.ai-repo-safety.toml
+          test -f /tmp/smoke-target/.repo-safety/opengrep/python-dangerous-code.yml
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist
           path: dist/
+          if-no-files-found: error
 
   publish:
-    needs: build
+    needs: build-and-smoke
     runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/project/ai-repo-safety/
+    permissions:
+      contents: read
+      id-token: write  # required for PyPI trusted publishing (OIDC)
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: dist
           path: dist/
-
       - name: publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1

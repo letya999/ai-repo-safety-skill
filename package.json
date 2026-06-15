@@ -33,6 +33,11 @@
     "index.js"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=18",
+    "npm": ">=11.5.1"
+  },
+  "scripts": {
+    "pack:check": "npm pack --dry-run",
+    "smoke:bin": "node bin/cli.js --version"
   }
 }
