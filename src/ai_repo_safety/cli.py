@@ -24,11 +24,36 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("install-missing", help="Install missing Python and system tools")
     p.add_argument("--dry-run", action="store_true")
 
-    p = sub.add_parser("setup", help="setup everything: run fast scan, init, install tools, install hooks, run full scan and configure GitHub security")
+    p = sub.add_parser("setup", help="plan and optionally apply repo safety bootstrap (plan-only by default)")
     p.add_argument("--target", default=".")
     p.add_argument("--python", choices=["auto", "yes", "no"], default="auto")
     p.add_argument("--github", choices=["auto", "yes", "no"], default="auto")
     p.add_argument("--overwrite", action="store_true")
+    p.add_argument(
+        "--apply",
+        action="store_true",
+        help="actually perform the optional steps; default is plan-only",
+    )
+    p.add_argument(
+        "--install-tools",
+        action="store_true",
+        help="in --apply mode, run the system/Python tool installer",
+    )
+    p.add_argument(
+        "--run-hooks",
+        action="store_true",
+        help="in --apply mode, install the local git pre-push hook",
+    )
+    p.add_argument(
+        "--configure-github",
+        action="store_true",
+        help="in --apply mode, call the GitHub API to enable secret scanning and push protection",
+    )
+    p.add_argument(
+        "--yes",
+        action="store_true",
+        help="required confirmation flag for any --apply mutation",
+    )
 
     p = sub.add_parser("init", help="apply repo safety assets")
     p.add_argument("--target", default=".")
@@ -99,7 +124,17 @@ def main(argv: list[str] | None = None) -> int:
         from ai_repo_safety.tools import install_missing_tools
         return install_missing_tools(dry_run=args.dry_run)
     if args.cmd == "setup":
-        return setup_project(args.target, python=args.python, github=args.github, overwrite=args.overwrite)
+        return setup_project(
+            args.target,
+            python=args.python,
+            github=args.github,
+            overwrite=args.overwrite,
+            mode="apply" if args.apply else "plan",
+            install_tools=args.install_tools,
+            configure_github=args.configure_github,
+            run_hooks=args.run_hooks,
+            yes=args.yes,
+        )
     if args.cmd == "init":
         return init_project(args.target, python=args.python, github=args.github, overwrite=args.overwrite)
     if args.cmd == "install-hooks":

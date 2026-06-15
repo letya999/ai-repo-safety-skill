@@ -283,49 +283,114 @@ def print_remediation_guidelines(findings: list[dict]) -> None:
     print("     ai-repo-safety incident")
 
 
-def setup_project(target: str | Path, *, python: str = "auto", github: str = "auto", overwrite: bool = False) -> int:
+def setup_project(
+    target: str | Path,
+    *,
+    python: str = "auto",
+    github: str = "auto",
+    overwrite: bool = False,
+    mode: str = "plan",
+    install_tools: bool = False,
+    configure_github: bool = False,
+    run_hooks: bool = False,
+    yes: bool = False,
+) -> int:
+    """One-click setup for a target repository.
+
+    Safety posture: by default this command is plan-only. It does not
+    modify the host system, install global packages, push to remotes,
+    or call any GitHub API that mutates repository settings. Pass
+    ``yes=True`` together with the explicit ``install_tools`` /
+    ``configure_github`` / ``run_hooks`` flags to opt into the
+    corresponding side effects.
+
+    Modes:
+
+    - ``mode="plan"`` (default): run the fast scan and the local file
+      bootstrap, then print a plan of the remaining steps. Exit 0.
+    - ``mode="apply"``: run the same scan and bootstrap, then execute
+      whichever optional steps have been explicitly enabled by the
+      caller. The caller is responsible for passing ``yes=True`` so
+      the intent is unambiguous; this guards against scripted
+      invocations inheriting a YOLO posture by accident.
+    """
     from .fast_scan import scan_directory
-    from .tools import install_missing_tools
-    from .hooks import install_hooks
-    from .scanner import scan
+
+    if mode not in {"plan", "apply"}:
+        raise ValueError(f"mode must be 'plan' or 'apply', got {mode!r}")
 
     root = project_root(target)
     print("=" * 60)
     print("   AI REPO SAFETY - ONE-CLICK SETUP")
+    print(f"   mode: {mode}")
+    if mode == "apply":
+        print(f"   install_tools: {install_tools}")
+        print(f"   configure_github: {configure_github}")
+        print(f"   run_hooks: {run_hooks}")
     print("=" * 60)
 
     print("\n[Step 1/6] Running fast local scan...")
     findings = scan_directory(root)
     if findings:
-        print("\n⚠️  Warning: Potential security issues or forbidden files found by fast-scan:")
+        print("\n[Warning] Potential security issues or forbidden files found by fast-scan:")
         for f in findings:
             line_info = f" (line {f['line']})" if "line" in f else ""
             print(f"  - [{f['type']}] {f['file']}{line_info}: {f['message']}")
         print_remediation_guidelines(findings)
         print("-" * 50)
-
     else:
-        print("✓ Fast local scan passed. No immediate issues found.")
+        print("[OK] Fast local scan passed. No immediate issues found.")
 
     print("\n[Step 2/6] Initializing repository safety assets...")
     init_project(root, python=python, github=github, overwrite=overwrite)
 
-    print("\n[Step 3/6] Installing missing tools...")
-    install_missing_tools()
+    if mode == "plan":
+        print("\n[Step 3/6] Would install missing tools: SKIPPED (plan mode)")
+        print("\n[Step 4/6] Would install git hooks: SKIPPED (plan mode)")
+        print("\n[Step 5/6] Would run full security scans: SKIPPED (plan mode)")
+        print("\n[Step 6/6] Would configure GitHub repository security: SKIPPED (plan mode)")
+        print(
+            "\nRe-run with --apply --yes to perform the optional steps. "
+            "Use --install-tools, --configure-github, --run-hooks to opt in individually."
+        )
+        return 0
 
-    print("\n[Step 4/6] Installing git hooks...")
-    install_hooks(root)
+    if not yes:
+        print(
+            "\n[Refusing to mutate] apply mode requires explicit --yes. "
+            "Re-run with --yes to perform the optional steps."
+        )
+        return 2
+
+    from .hooks import install_hooks
+    from .scanner import scan
+
+    if install_tools:
+        print("\n[Step 3/6] Installing missing tools...")
+        from .tools import install_missing_tools
+        install_missing_tools()
+    else:
+        print("\n[Step 3/6] Skipped (not requested). Use --install-tools to opt in.")
+
+    if run_hooks:
+        print("\n[Step 4/6] Installing git hooks...")
+        install_hooks(root)
+    else:
+        print("\n[Step 4/6] Skipped (not requested). Use --run-hooks to opt in.")
 
     print("\n[Step 5/6] Running full security scans...")
     scan_result = scan(root)
 
-    print("\n[Step 6/6] Configuring GitHub repository security...")
-    configure_github_repo_security(root)
+    if configure_github:
+        print("\n[Step 6/6] Configuring GitHub repository security...")
+        configure_github_repo_security(root)
+    else:
+        print("\n[Step 6/6] Skipped (not requested). Use --configure-github to opt in.")
 
     print("\n" + "=" * 60)
     if scan_result == 0:
-        print("🎉 Setup complete! Your repository is now secured.")
+        print("[OK] Setup apply complete. Repository is now secured.")
     else:
-        print("⚠️  Setup complete with warnings. Please address the scan findings above.")
+        print("[Warning] Setup apply complete with warnings. Please address the scan findings above.")
     print("=" * 60)
     return scan_result
