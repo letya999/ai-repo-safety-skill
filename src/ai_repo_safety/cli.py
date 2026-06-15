@@ -11,6 +11,7 @@ from .scanner import prepush, scan
 from .threat_model import generate as generate_threat_model
 from .tools import doctor
 from .util import project_root
+from .verify_release import verify_release
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -95,6 +96,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--type", default="secret-leak")
     p.add_argument("--overwrite", action="store_true")
 
+    p = sub.add_parser("verify-release", help="verify the project is ready for a new release")
+    p.add_argument("--target", default=".")
+    p.add_argument("--version", required=True, help="expected release version, e.g. 0.1.4")
+    p.add_argument("--skip-build", action="store_true", help="do not run uv build")
+
     gh = sub.add_parser("github-guard", help="guard reads of GitHub commits/PRs/branches/issues")
     gh_sub = gh.add_subparsers(dest="gh_cmd", required=True)
 
@@ -176,6 +182,12 @@ def main(argv: list[str] | None = None) -> int:
         return generate_threat_model(args.target, overwrite=args.overwrite)
     if args.cmd == "incident":
         return create_incident(args.target, incident_type=args.type, overwrite=args.overwrite)
+    if args.cmd == "verify-release":
+        return verify_release(
+            args.target,
+            args.version,
+            skip_build=args.skip_build,
+        )
     if args.cmd == "github-guard":
         root = project_root(args.target)
         if args.gh_cmd == "validate":
