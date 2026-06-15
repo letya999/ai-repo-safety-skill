@@ -1,6 +1,6 @@
 {
   "name": "ai-repo-safety",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "AI/vibe-coding repo safety skill with secret scanning, SAST, GitHub read guard, MCP safety, and incident cleanup.",
   "keywords": [
     "security",
