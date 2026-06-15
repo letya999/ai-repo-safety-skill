@@ -10,7 +10,7 @@ The project is designed for **Python 3.12**, **uv**, and **uvx**, and works on *
 
 ## What this gives you
 
-- one installable skill: `skill/ai-repo-safety/SKILL.md`
+- one installable skill: `SKILL.md`
 - one Python CLI: `ai-repo-safety`
 - safe repo bootstrap before the first commit
 - secret file denylist
@@ -23,6 +23,12 @@ The project is designed for **Python 3.12**, **uv**, and **uvx**, and works on *
 - lightweight STRIDE threat model templates
 - incident cleanup templates
 - cross-platform tool doctor and install plan
+
+> **Note:** Earlier versions of this README referenced
+> `skill/ai-repo-safety/SKILL.md`. The skill ships as a single
+> `SKILL.md` at the repository root, and agents are expected to
+> install it into their config directory via the
+> [skills](https://github.com/vercel-labs/skills) CLI.
 
 ## Install the skill (AI agents)
 
@@ -37,6 +43,12 @@ Or install to a specific agent:
 ```bash
 npx skills add letya999/ai-repo-safety-skill -a claude-code
 ```
+
+> **Branch and release model:** the default branch is `dev`.
+> Releases are tagged from `dev` (e.g. `v0.1.4`) and published to
+> PyPI and npm via Trusted Publishing on tag push. The
+> `ai-repo-safety verify-release --version X.Y.Z` command checks
+> that a release is ready before you push the tag.
 
 ## Install the CLI
 
@@ -87,15 +99,38 @@ The skill is ready to be executed via `uv run` universally on Windows, macOS, an
 ## Commands
 
 ```bash
+# Read-only environment check.
 ai-repo-safety doctor
+
+# Plan-only bootstrap. By default does not install tools, hooks,
+# or call the GitHub API. Use --apply --yes and the matching
+# opt-in flag to perform a specific mutation.
 ai-repo-safety init --target . --python auto --github auto
+ai-repo-safety setup --target .            # plan only
+ai-repo-safety setup --target . --apply --run-hooks --yes
+
+# Local hook install. Refuses to overwrite an unmanaged existing
+# hook unless --overwrite (or --chain to append) is passed.
 ai-repo-safety install-hooks --target .
+ai-repo-safety install-hooks --target . --chain
+ai-repo-safety install-hooks --target . --overwrite
+
+# Scans.
 ai-repo-safety scan --target .
+ai-repo-safety scan --target . --strict
 ai-repo-safety prepush --target .
+
+# GitHub read guard. Always pass an explicit --reason.
+ai-repo-safety github-guard validate --target . --repo owner/repo --resource pulls --reason "review current PRs"
 ai-repo-safety github-guard read --target . --repo owner/repo --resource pulls --reason "review current PRs"
 ai-repo-safety github-guard check-text --target . --file suspicious_issue.md
+
+# Threat model and incident templates.
 ai-repo-safety threat-model --target .
 ai-repo-safety incident --target . --type secret-leak
+
+# Pre-release verification.
+ai-repo-safety verify-release --version 0.1.4 --target .
 ```
 
 ## AI Assistant Integrations
