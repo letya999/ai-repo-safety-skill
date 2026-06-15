@@ -108,6 +108,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     import sys
+
+    # Normalize the CLI's PATH so subprocesses can find venv-installed
+    # tools, opengrep, and the user's local bin. This is an explicit,
+    # idempotent side effect of running the CLI; importing the package
+    # must not have triggered it.
+    from .util import prepare_cli_environment
+
+    prepare_cli_environment()
+
     if sys.stdout.encoding.lower() != 'utf-8':
         try:
             sys.stdout.reconfigure(encoding='utf-8')
