@@ -17,7 +17,10 @@ jobs:
         with:
           enable-cache: true
       - name: build
-        run: uv build
+        # --no-sources: per uv docs, release builds should ignore
+        # [tool.uv.sources] so the wheel builds the same way under
+        # pypa/build and any other backend the consumer might use.
+        run: uv build --no-sources
       - name: twine check
         run: uvx twine check dist/*
       - name: install-wheel smoke

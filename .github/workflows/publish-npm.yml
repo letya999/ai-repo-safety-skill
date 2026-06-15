@@ -17,6 +17,8 @@ jobs:
         with:
           node-version: '22.14.0'
           registry-url: 'https://registry.npmjs.org'
+          # Per npm docs June 2026: never use caching in release builds.
+          package-manager-cache: false
       - name: upgrade npm
         run: npm install -g npm@^11.10.0
       - name: verify npm auth via Trusted Publishing dry-run
@@ -43,6 +45,8 @@ jobs:
         with:
           node-version: '22.14.0'
           registry-url: 'https://registry.npmjs.org'
+          # Per npm docs June 2026: never use caching in release builds.
+          package-manager-cache: false
       - name: upgrade npm
         run: npm install -g npm@^11.10.0
       - name: publish to npm
