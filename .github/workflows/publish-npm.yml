@@ -52,8 +52,4 @@ jobs:
       - name: publish to npm
         run: npm publish --access public
         env:
-          # The registry-url above causes setup-node to issue a
-          # short-lived OIDC token automatically. Do not set
-          # NODE_AUTH_TOKEN; if it is set, npm will prefer it and
-          # the OIDC flow will not be used.
-          NODE_AUTH_TOKEN: ""
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
