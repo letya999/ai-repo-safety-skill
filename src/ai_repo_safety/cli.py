@@ -121,7 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--version", required=True, help="expected release version, e.g. 0.1.4")
     p.add_argument("--skip-build", action="store_true", help="do not run uv build")
 
-    p = sub.add_parser("sbom", help="generate a CycloneDX SBOM (requires cyclonedx-py)")
+    p = sub.add_parser("sbom", help="generate a CycloneDX SBOM (requires cyclonedx-bom)")
     p.add_argument("--target", default=".")
     p.add_argument(
         "--format",
@@ -131,9 +131,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--output", default="sbom.cdx.json", help="output file path")
     p.add_argument(
         "--scope",
-        choices=["project", "environment"],
-        default="project",
-        help="what to inventory: project metadata or full Python env",
+        choices=["environment", "requirements", "pipenv", "poetry"],
+        default="environment",
+        help=(
+            "what to inventory. Matches `cyclonedx-bom` v7.3.0 "
+            "subcommands. The earlier `project` scope was removed "
+            "because it pointed at a non-existent subcommand."
+        ),
     )
 
     gh = sub.add_parser("github-guard", help="guard reads of GitHub commits/PRs/branches/issues")
