@@ -82,8 +82,6 @@ def apply_universal(root: Path, *, overwrite: bool = False) -> list[str]:
         "forbid_sensitive_files.py",
         "prepush.py",
         "scan_mcp_config.py",
-        "github_read_guard.py",
-        "scan_secrets.py",
     ]
     for name in scripts:
         copy_asset(f"scripts/{name}", root / "scripts" / "security" / name, overwrite=True)
