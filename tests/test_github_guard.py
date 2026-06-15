@@ -16,9 +16,10 @@ from ai_repo_safety.github_guard import (
 
 def test_redact_strips_github_pat() -> None:
     text = "token=ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD"
-    cleaned = redact(text)
+    cleaned, count = redact(text)
     assert "ghp_" not in cleaned
     assert "[REDACTED_SECRET]" in cleaned
+    assert count >= 1
 
 
 def test_redact_strips_pem_block() -> None:
@@ -27,8 +28,9 @@ def test_redact_strips_pem_block() -> None:
         "abc\n"
         "-----END RSA PRIVATE KEY-----\n"
     )
-    cleaned = redact(text)
+    cleaned, count = redact(text)
     assert "BEGIN" not in cleaned or "[REDACTED_SECRET]" in cleaned
+    assert count == 1
 
 
 def test_prompt_injection_hits_for_known_patterns() -> None:
@@ -117,19 +119,41 @@ def test_check_text_handles_nonexistent_file(tmp_path: Path) -> None:
 
 def test_sanitize_payload_truncates_long_strings() -> None:
     payload = {"x": "a" * 1000}
-    sanitized, _ = sanitize_payload(payload, max_body_chars=100, block_prompt_injection=False)
+    sanitized, _, count = sanitize_payload(payload, max_body_chars=100, block_prompt_injection=False)
     assert sanitized["x"].endswith("...[TRUNCATED]")
+    assert count == 0
 
 
 def test_sanitize_payload_redacts_secrets() -> None:
     payload = {"body": "ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD"}
-    sanitized, _ = sanitize_payload(payload, max_body_chars=10000, block_prompt_injection=False)
+    sanitized, _, count = sanitize_payload(payload, max_body_chars=10000, block_prompt_injection=False)
     assert "ghp_" not in sanitized["body"]
     assert "[REDACTED_SECRET]" in sanitized["body"]
+    assert count >= 1
 
 
 def test_sanitize_payload_drops_body_html() -> None:
     payload = {"body": "ok", "body_html": "<p>x</p>"}
-    sanitized, _ = sanitize_payload(payload, max_body_chars=10000, block_prompt_injection=False)
+    sanitized, _, count = sanitize_payload(payload, max_body_chars=10000, block_prompt_injection=False)
     assert "body_html" not in sanitized
     assert sanitized["body"] == "ok"
+
+
+def test_sanitize_payload_drops_noisy_fields() -> None:
+    payload = {
+        "html_url": "keep",
+        "comments_url": "drop",
+        "node_id": "drop",
+        "nested": {
+            "performed_via_github_app": "drop",
+            "active_lock_reason": "drop",
+            "title": "keep",
+        }
+    }
+    sanitized, _, _ = sanitize_payload(payload, max_body_chars=10000, block_prompt_injection=False)
+    assert "html_url" in sanitized
+    assert "comments_url" not in sanitized
+    assert "node_id" not in sanitized
+    assert "performed_via_github_app" not in sanitized["nested"]
+    assert "active_lock_reason" not in sanitized["nested"]
+    assert "title" in sanitized["nested"]

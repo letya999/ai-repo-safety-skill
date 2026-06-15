@@ -100,6 +100,16 @@ uv run ai-repo-safety <command> --target <path-to-target-repo>
    uv run ai-repo-safety github-guard read --repo owner/repo --resource pulls --reason "review current PRs"
    ```
 
+## Tooling behavior
+
+- The `ai-repo-safety install-tools` command defaults to dry-run (`--plan`). To actually install system tools, you must explicitly pass `--yes`.
+- The NPM wrapper uses a pinned `uvx` resolution for supply-chain safety.
+- The CLI version is dynamically derived from `importlib.metadata` (the installed wheel).
+
+## OpenCode flow & Threat Model
+
+When operating on OpenCode repositories, follow the specific flow documented in `docs/opencode.md`. This workflow adheres to the agentic-skills threat model, ensuring secure automated changes and strict review gates for mutations.
+
 ## Practices this skill enforces
 
 - Secure bootstrap before first commit

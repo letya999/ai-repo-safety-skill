@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
+import subprocess  # nosec B404
 import tomllib
 from pathlib import Path
 from typing import Callable

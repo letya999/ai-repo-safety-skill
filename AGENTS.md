@@ -65,3 +65,8 @@ If Git, Python, uv, uvx, scanners, or GitHub CLI are missing:
 2. Search official documentation or official releases for the current stable compatible version.
 3. Install only from official sources or trusted OS package managers.
 4. Re-run `ai-repo-safety doctor`.
+# >>> AI REPO SAFETY RULES >>>
+## AI Repo Safety Addendum
+
+Run `ai-repo-safety scan --target .` before commits and `ai-repo-safety prepush --target .` before pushes. Use `ai-repo-safety github-guard` for reading GitHub issues, PRs, commits, and branches into AI context.
+# <<< AI REPO SAFETY RULES <<<
