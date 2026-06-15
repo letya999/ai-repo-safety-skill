@@ -61,6 +61,24 @@ def test_npm_and_python_versions_match() -> None:
     )
 
 
+def test_package_json_declares_runtime_engines() -> None:
+    """Per the June 2026 npm Trusted Publishing reference, the
+    wrapper must declare the runtime floors it supports so that
+    downstream consumers know the minimum Node and npm versions.
+    We require both `engines.node` and `engines.npm` to be
+    present and non-empty. The `>=18` floor for node matches the
+    `bin/cli.js` runtime (which only uses `node:child_process`,
+    `node:fs`, and `path`).
+    """
+    import json
+
+    package = json.loads(Path("package.json").read_text(encoding="utf-8"))
+    engines = package.get("engines")
+    assert isinstance(engines, dict), "package.json must declare an 'engines' object"
+    assert engines.get("node"), "engines.node must be a non-empty string"
+    assert engines.get("npm"), "engines.npm must be a non-empty string"
+
+
 def test_source_tree_version_falls_back_safely() -> None:
     # Without a built/installed distribution, importlib.metadata raises
     # PackageNotFoundError. The package must surface a clearly non-semver

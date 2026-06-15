@@ -4,9 +4,11 @@ from pathlib import Path
 
 from ai_repo_safety.verify_release import (
     check_artifact_manifest_script_present,
+    check_codeowners_present,
     check_npm_wrapper_no_latest,
     check_no_lit_wildcard_mutable_refs,
     check_no_npm_token_publish_path,
+    check_package_json_engines,
     check_version_consistency,
     check_wheel_smoke_script_present,
     check_workflows_pin_full_sha,
@@ -100,3 +102,53 @@ def test_no_npm_token_publish_path_flags_secret_read(tmp_path: Path) -> None:
     err = check_no_npm_token_publish_path(tmp_path)
     assert err is not None
     assert "NODE_AUTH_TOKEN" in err
+
+
+def test_package_json_engines_passes() -> None:
+    assert check_package_json_engines(Path(".")) is None
+
+
+def test_package_json_engines_fails_on_missing_node_floor(tmp_path: Path) -> None:
+    import json
+
+    (tmp_path / "package.json").write_text(
+        json.dumps({"name": "x", "version": "0.0.0", "engines": {"npm": ">=11.5.1"}}),
+        encoding="utf-8",
+    )
+    err = check_package_json_engines(tmp_path)
+    assert err is not None
+    assert "engines.node" in err
+
+
+def test_package_json_engines_fails_on_missing_npm_floor(tmp_path: Path) -> None:
+    import json
+
+    (tmp_path / "package.json").write_text(
+        json.dumps({"name": "x", "version": "0.0.0", "engines": {"node": ">=18"}}),
+        encoding="utf-8",
+    )
+    err = check_package_json_engines(tmp_path)
+    assert err is not None
+    assert "engines.npm" in err
+
+
+def test_codeowners_present_passes() -> None:
+    assert check_codeowners_present(Path(".")) is None
+
+
+def test_codeowners_present_fails_when_missing(tmp_path: Path) -> None:
+    err = check_codeowners_present(tmp_path)
+    assert err is not None
+    assert "CODEOWNERS" in err
+
+
+def test_codeowners_present_fails_when_workflows_not_gated(tmp_path: Path) -> None:
+    (tmp_path / ".github").mkdir(parents=True)
+    (tmp_path / ".github" / "CODEOWNERS").write_text(
+        "# only gates docs\n"
+        "/docs/   @owner\n",
+        encoding="utf-8",
+    )
+    err = check_codeowners_present(tmp_path)
+    assert err is not None
+    assert "workflows" in err
