@@ -41,10 +41,35 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ai_repo_safety"]
+# Explicitly include the asset bundle (templates, scripts, rules, docs,
+# agents, workflows). Required for the installed CLI to be able to read
+# templates via importlib.resources at runtime. Root-anchored .gitignore
+# is also part of the fix; this is a defense-in-depth net.
+artifacts = [
+  "src/ai_repo_safety/assets/**",
+]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "pyproject.toml", "tests"]
+# Include only the project sources and explicitly listed top-level files.
+# Excluding `assets/templates/universal/AGENTS.md` from sdist previously
+# caused installed-wheel `init` to fail with FileNotFoundError; explicit
+# include + the root-anchored .gitignore resolve that.
+include = [
+  "src/ai_repo_safety/**",
+  "pyproject.toml",
+  "tests/**",
+  "README.md",
+  "LICENSE",
+  "SKILL.md",
+  "docs/tooling.md",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+# tests/test_setup_project invokes the live setup pipeline; it must be
+# marked so the deterministic CI variant can be selected explicitly.
+markers = [
+  "network: tests that require network or external tool installation",
+  "live: tests that exercise side-effecting CLI flows end-to-end",
+]
