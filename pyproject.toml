@@ -9,7 +9,23 @@ authors = [
   { name = "AI Repo Safety contributors" }
 ]
 keywords = ["security", "ai-coding", "vibe-coding", "secrets", "sast", "github", "mcp", "uv"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+  "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://skills.sh/letya999/ai-repo-safety-skill"
+Repository = "https://github.com/letya999/ai-repo-safety-skill"
+Issues = "https://github.com/letya999/ai-repo-safety-skill/issues"
 
 [project.scripts]
 ai-repo-safety = "ai_repo_safety.cli:main"

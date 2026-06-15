@@ -1,0 +1,26 @@
+# Python artifacts
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+dist/
+*.egg-info/
+src/
+tests/
+pyproject.toml
+uv.lock
+
+# Dev/CI
+.github/
+.pre-commit-config*.yaml
+scripts/
+plans/
+docs/
+
+# Git
+.git/
+.gitignore
+
+# Secrets / env
+.env
+.env.*

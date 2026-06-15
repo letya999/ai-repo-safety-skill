@@ -1,0 +1,38 @@
+{
+  "name": "ai-repo-safety",
+  "version": "0.1.0",
+  "description": "AI/vibe-coding repo safety skill with secret scanning, SAST, GitHub read guard, MCP safety, and incident cleanup.",
+  "keywords": [
+    "security",
+    "ai-coding",
+    "vibe-coding",
+    "skill",
+    "claude-code",
+    "agents",
+    "secrets",
+    "sast",
+    "mcp",
+    "github"
+  ],
+  "homepage": "https://skills.sh/letya999/ai-repo-safety-skill",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/letya999/ai-repo-safety-skill.git"
+  },
+  "bugs": {
+    "url": "https://github.com/letya999/ai-repo-safety-skill/issues"
+  },
+  "license": "MIT",
+  "main": "index.js",
+  "bin": {
+    "ai-repo-safety": "./bin/cli.js"
+  },
+  "files": [
+    "SKILL.md",
+    "bin/",
+    "index.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

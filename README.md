@@ -1,5 +1,9 @@
 # AI Repo Safety Skill
 
+[![skills.sh](https://skills.sh/b/letya999/ai-repo-safety-skill)](https://skills.sh/letya999/ai-repo-safety-skill)
+[![PyPI](https://img.shields.io/pypi/v/ai-repo-safety)](https://pypi.org/project/ai-repo-safety/)
+[![npm](https://img.shields.io/npm/v/ai-repo-safety)](https://www.npmjs.com/package/ai-repo-safety)
+
 One powerful public skill + asset repository for hardening AI/vibe-coded projects before commit, before push, and before publishing on GitHub.
 
 The project is designed for **Python 3.12**, **uv**, and **uvx**, and works on **Windows, macOS, and Linux**. It uses only free / open-source / community tools by default.
@@ -20,25 +24,49 @@ The project is designed for **Python 3.12**, **uv**, and **uvx**, and works on *
 - incident cleanup templates
 - cross-platform tool doctor and install plan
 
-## Quick start from source
+## Install the skill (AI agents)
+
+Install to all detected agents in one command:
 
 ```bash
-uv sync
-uv run ai-repo-safety doctor
-uv run ai-repo-safety init --target ../your-project --python auto --github auto
-uv run ai-repo-safety install-hooks --target ../your-project
-uv run ai-repo-safety scan --target ../your-project
+npx skills add letya999/ai-repo-safety-skill
 ```
 
-
-
-## Quick start with uvx from a published Git repo
+Or install to a specific agent:
 
 ```bash
-uvx --from git+https://github.com/YOUR_ORG/ai-repo-safety-skill ai-repo-safety doctor
-uvx --from git+https://github.com/YOUR_ORG/ai-repo-safety-skill ai-repo-safety init --target . --python auto --github auto
-uvx --from git+https://github.com/YOUR_ORG/ai-repo-safety-skill ai-repo-safety install-hooks --target .
-uvx --from git+https://github.com/YOUR_ORG/ai-repo-safety-skill ai-repo-safety scan --target .
+npx skills add letya999/ai-repo-safety-skill -a claude-code
+```
+
+## Install the CLI
+
+**Via uv/uvx (recommended):**
+
+```bash
+uv tool install ai-repo-safety
+ai-repo-safety doctor
+```
+
+Or run without installing:
+
+```bash
+uvx ai-repo-safety doctor
+uvx ai-repo-safety init --target . --python auto --github auto
+uvx ai-repo-safety scan --target .
+```
+
+**Via pip:**
+
+```bash
+pip install ai-repo-safety
+ai-repo-safety doctor
+```
+
+**Via npm (delegates to Python under the hood):**
+
+```bash
+npm install -g ai-repo-safety
+ai-repo-safety doctor
 ```
 
 ## Skill install layout
