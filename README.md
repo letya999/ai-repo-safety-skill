@@ -20,7 +20,8 @@ The project is designed for **Python 3.12**, **uv**, and **uvx**, and works on *
 - Opengrep-first SAST profile, without Semgrep as a default dependency
 - Python hardening via Bandit, Ruff, pip-audit, pytest, pydantic-settings examples
 - GitHub public repo hardening workflows
-- GitHub read guard for commits, PRs, branches, issues, and merge request aliases
+- GitLab CI pipeline templates and SaaS/Self-Hosted config support
+- GitHub and GitLab read guard for commits, PRs, branches, issues, and merge requests
 - MCP config safety checks
 - lightweight STRIDE threat model templates
 - incident cleanup templates
@@ -117,6 +118,12 @@ ai-repo-safety install-hooks --target .
 ai-repo-safety install-hooks --target . --chain
 ai-repo-safety install-hooks --target . --overwrite
 
+# Project-local agent hooks. These are repo-scoped, not global:
+# Codex reads .codex/hooks.json, Claude Code reads
+# .claude/settings.json, OpenCode auto-loads .opencode/plugins/,
+# Antigravity reads workspace .agents/hooks.json.
+ai-repo-safety install-agent-hooks --target . --tool all
+
 # Scans.
 ai-repo-safety scan --target .
 ai-repo-safety scan --target . --strict
@@ -126,6 +133,9 @@ ai-repo-safety prepush --target .
 ai-repo-safety github-guard validate --target . --repo owner/repo --resource pulls --reason "review current PRs"
 ai-repo-safety github-guard read --target . --repo owner/repo --resource pulls --reason "review current PRs"
 ai-repo-safety github-guard check-text --target . --file suspicious_issue.md
+
+# GitLab read guard for SaaS and Self-Hosted.
+ai-repo-safety gitlab-guard read --target . --repo namespace/repo --resource merge_requests --reason "analyze MRs"
 
 # Threat model and incident templates.
 ai-repo-safety threat-model --target .
@@ -218,7 +228,7 @@ It enforces policy from `.repo-safety.json`:
 - prompt-injection pattern detection
 - aliases for `mrs` / `merge_requests` -> GitHub pulls
 
-Agents should use this wrapper instead of direct `gh api`, `gh pr view`, `gh issue view`, or raw GitHub web reads when reading GitHub context into an AI session.
+Agents should use this wrapper instead of direct `gh api`, `gh pr view`, `glab api`, `glab mr view`, or raw GitHub/GitLab web reads when reading context into an AI session.
 
 ## Important limits
 

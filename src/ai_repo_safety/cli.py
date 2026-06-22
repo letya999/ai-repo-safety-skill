@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 
 from . import __version__
+from .agent_hooks import install_agent_hooks
 from .bootstrap import init_project, setup_project
 from .github_guard import check_text, read_github, validate_request
+from .gitlab_guard import check_text as gl_check_text, read_gitlab, validate_request as gl_validate_request
 from .hooks import install_hooks
 from .incident import create as create_incident
 from .scanner import prepush, scan
@@ -85,6 +87,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="custom hooks directory (defaults to .git/hooks)",
     )
 
+    p = sub.add_parser("install-agent-hooks", help="install minimal project-local hooks for Codex, Claude Code, OpenCode, and Antigravity")
+    p.add_argument("--target", default=".")
+    p.add_argument(
+        "--tool",
+        choices=["all", "codex", "claude", "opencode", "antigravity"],
+        default="all",
+        help="which runtime to generate config for",
+    )
+    p.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace any existing generated agent hook config",
+    )
+
     p = sub.add_parser("scan", help="run available local scans")
     p.add_argument("--target", default=".")
     p.add_argument("--strict", action="store_true", help="missing recommended scanners fail the run")
@@ -163,6 +179,29 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--file")
     p.add_argument("--text")
 
+    gl = sub.add_parser("gitlab-guard", help="guard reads of GitLab commits/MRs/branches/issues")
+    gl_sub = gl.add_subparsers(dest="gl_cmd", required=True)
+
+    p = gl_sub.add_parser("validate", help="validate if a GitLab read is allowed by policy")
+    p.add_argument("--target", default=".")
+    p.add_argument("--repo", required=True)
+    p.add_argument("--resource", required=True, choices=["issues", "merge_requests", "mrs", "branches", "commits"])
+    p.add_argument("--reason")
+    p.add_argument("--limit", type=int)
+
+    p = gl_sub.add_parser("read", help="read GitLab data through policy and redaction guard")
+    p.add_argument("--target", default=".")
+    p.add_argument("--repo", required=True)
+    p.add_argument("--resource", required=True, choices=["issues", "merge_requests", "mrs", "branches", "commits"])
+    p.add_argument("--reason")
+    p.add_argument("--limit", type=int)
+    p.add_argument("--allow-prompt-injection-risk", action="store_true")
+
+    p = gl_sub.add_parser("check-text", help="scan text/file for prompt-injection-like patterns and redact secrets")
+    p.add_argument("--target", default=".")
+    p.add_argument("--file")
+    p.add_argument("--text")
+
     return parser
 
 
@@ -216,6 +255,12 @@ def main(argv: list[str] | None = None) -> int:
             chain=args.chain,
             hooks_path=args.hooks_path,
         )
+    if args.cmd == "install-agent-hooks":
+        return install_agent_hooks(
+            args.target,
+            tool=args.tool,
+            overwrite=args.overwrite,
+        )
     if args.cmd == "scan":
         if args.json or args.sarif:
             from .scan_output import emit_scan
@@ -258,6 +303,17 @@ def main(argv: list[str] | None = None) -> int:
             return read_github(root, args.repo, args.resource, args.reason, args.limit, args.allow_prompt_injection_risk)
         if args.gh_cmd == "check-text":
             return check_text(root, args.file, args.text)
+
+    if args.cmd == "gitlab-guard":
+        root = project_root(args.target)
+        if args.gl_cmd == "validate":
+            ok, msg, limit, resource = gl_validate_request(root, args.repo, args.resource, args.reason, args.limit)
+            print({"allowed": ok, "message": msg, "resource": resource, "effective_limit": limit})
+            return 0 if ok else 2
+        if args.gl_cmd == "read":
+            return read_gitlab(root, args.repo, args.resource, args.reason, args.limit, args.allow_prompt_injection_risk)
+        if args.gl_cmd == "check-text":
+            return gl_check_text(root, args.file, args.text)
 
     parser.error("unknown command")
     return 2

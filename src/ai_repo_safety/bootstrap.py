@@ -63,6 +63,7 @@ def apply_universal(root: Path, *, overwrite: bool = False) -> list[str]:
         ("templates/universal/SECURITY.md", "SECURITY.md"),
         ("templates/universal/pre-commit-config.yaml", ".pre-commit-config.yaml"),
         ("templates/universal/dockerignore", ".dockerignore"),
+        ("docs/agent-hooks.md", "docs/agent-hooks.md"),
         ("docs/mcp-safety.md", "docs/mcp-safety.md"),
         ("docs/incident-cleanup.md", "docs/incident-cleanup.md"),
         ("docs/git-history-cleanup.md", "docs/git-history-cleanup.md"),
@@ -186,6 +187,7 @@ def init_project(target: str | Path, *, python: str = "auto", github: str = "aut
     print()
     print("Next:")
     print(f"  ai-repo-safety install-hooks --target {root}")
+    print(f"  ai-repo-safety install-agent-hooks --target {root} --tool all")
     print(f"  ai-repo-safety scan --target {root}")
     return 0
 

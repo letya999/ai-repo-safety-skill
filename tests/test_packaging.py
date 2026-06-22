@@ -12,6 +12,7 @@ import pytest
 # source-tree counterpart of the installed-wheel smoke test
 # (`scripts/smoke-wheel.sh`).
 REQUIRED_ASSETS: tuple[str, ...] = (
+    "docs/agent-hooks.md",
     "templates/universal/AGENTS.md",
     "templates/universal/SECURITY.md",
     "templates/universal/env.example",
@@ -25,6 +26,7 @@ REQUIRED_ASSETS: tuple[str, ...] = (
     "rules/opengrep/python-dangerous-code.yml",
     "rules/opengrep/github-actions-security.yml",
     "scripts/forbid_sensitive_files.py",
+    "scripts/agent_hook_runner.py",
     "scripts/prepush.py",
     "scripts/scan_mcp_config.py",
 )

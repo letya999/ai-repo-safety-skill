@@ -61,11 +61,13 @@ def test_installed_wheel_contains_all_required_assets() -> None:
     if whl is None:
         pytest.skip("no wheel in dist/")
     required = {
+        "ai_repo_safety/assets/docs/agent-hooks.md",
         "ai_repo_safety/assets/templates/universal/AGENTS.md",
         "ai_repo_safety/assets/templates/universal/SECURITY.md",
         "ai_repo_safety/assets/templates/python/bandit.yaml",
         "ai_repo_safety/assets/templates/python/pyproject.ai-repo-safety.toml",
         "ai_repo_safety/assets/rules/opengrep/python-dangerous-code.yml",
+        "ai_repo_safety/assets/scripts/agent_hook_runner.py",
         "ai_repo_safety/assets/scripts/forbid_sensitive_files.py",
         "ai_repo_safety/assets/scripts/prepush.py",
         "ai_repo_safety/assets/scripts/scan_mcp_config.py",
