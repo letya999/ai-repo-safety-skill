@@ -6,7 +6,14 @@ import sys
 from pathlib import Path
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "security" / "scan_mcp_config.py"
+SCRIPT = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "ai_repo_safety"
+    / "assets"
+    / "scripts"
+    / "scan_mcp_config.py"
+)
 
 
 def test_scan_mcp_config_flags_plaintext_scope_and_unpinned_runner(tmp_path: Path) -> None:
