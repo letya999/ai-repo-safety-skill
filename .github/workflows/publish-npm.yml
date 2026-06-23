@@ -21,10 +21,10 @@ jobs:
           package-manager-cache: false
       - name: upgrade npm
         run: npm install -g npm@^11.10.0
-      - name: verify npm auth via Trusted Publishing dry-run
+      - name: verify npm publish auth path
         run: |
-          echo "NPM publish uses OIDC Trusted Publishing; no long-lived token is read."
-          echo "Configure the npm trusted publisher for this repository + workflow file + environment before merging."
+          echo "Preferred path: npm OIDC Trusted Publishing."
+          echo "Fallback path: repository secret NPM_TOKEN if Trusted Publisher is not configured yet."
       - name: verify package version matches tag
         run: |
           TAG="${GITHUB_REF_NAME#v}"
@@ -51,3 +51,5 @@ jobs:
         run: npm install -g npm@^11.10.0
       - name: publish to npm
         run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

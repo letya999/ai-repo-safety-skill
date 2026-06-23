@@ -67,12 +67,15 @@ def check_workflows_pin_full_sha(root: Path) -> str | None:
     return None
 
 
-def check_no_npm_token_publish_path(root: Path) -> str | None:
-    """Flag any publish-npm workflow that sets NODE_AUTH_TOKEN from
-    a secret (the legacy long-lived token path) inside the
-    `npm publish` step. Setting NODE_AUTH_TOKEN to an empty string
-    is acceptable; that explicitly disables the token and forces
-    npm to fall back to the OIDC trusted-publishing flow."""
+def check_npm_publish_auth_path(root: Path) -> str | None:
+    """Require a valid auth path for the npm publish step.
+
+    We prefer OIDC Trusted Publishing, but a repository-level
+    `NPM_TOKEN` fallback is still acceptable for young projects
+    that have not fully migrated. A release should fail only when
+    the workflow provides neither an id-token permission nor a
+    `NODE_AUTH_TOKEN` wiring for `npm publish`.
+    """
     workflow_dir = root / ".github" / "workflows"
     if not workflow_dir.exists():
         return None
@@ -80,17 +83,14 @@ def check_no_npm_token_publish_path(root: Path) -> str | None:
         text = path.read_text(encoding="utf-8")
         if "npm publish" not in text:
             continue
+        has_id_token = "id-token: write" in text
         publish_block = text.split("npm publish", 1)[1]
-        # Look for `NODE_AUTH_TOKEN: ${{ secrets.* }}` or any
-        # non-empty value assignment.
-        for line in publish_block.splitlines():
-            stripped = line.strip()
-            if not stripped.startswith("NODE_AUTH_TOKEN"):
-                continue
-            if "secrets." in line:
-                return f"{path.name}: publish step still reads NODE_AUTH_TOKEN from a secret"
-            if "=" in line and not line.endswith('""'):
-                return f"{path.name}: publish step sets NODE_AUTH_TOKEN to a non-empty value"
+        has_node_auth_token = "NODE_AUTH_TOKEN" in publish_block
+        if not has_id_token and not has_node_auth_token:
+            return (
+                f"{path.name}: publish step has no auth path; expected "
+                "either id-token: write for OIDC or NODE_AUTH_TOKEN wiring"
+            )
     return None
 
 
@@ -197,7 +197,7 @@ def verify_release(
         ("version consistency (pyproject / package.json / __init__)", lambda: check_version_consistency(root, expected_version)),
         ("workflow uses pinned to full commit SHA", lambda: check_workflows_pin_full_sha(root)),
         ("no mutable branch refs (main/master) as action pins", lambda: check_no_lit_wildcard_mutable_refs(root)),
-        ("publish-npm does not set NODE_AUTH_TOKEN for publish step", lambda: check_no_npm_token_publish_path(root)),
+        ("publish-npm has an auth path (OIDC or NODE_AUTH_TOKEN)", lambda: check_npm_publish_auth_path(root)),
         ("scripts/smoke-wheel.sh present", lambda: check_wheel_smoke_script_present(root)),
         ("scripts/check-package-artifacts.py present", lambda: check_artifact_manifest_script_present(root)),
         ("bin/cli.js no @latest, exact pin spec", lambda: check_npm_wrapper_no_latest(root)),

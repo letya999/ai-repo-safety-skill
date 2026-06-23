@@ -24,7 +24,7 @@ bash scripts/smoke-wheel.sh
 ai-repo-safety verify-release --version X.Y.Z
 ```
 
-All eight `verify-release` checks should report `[OK]`. The
+All `verify-release` checks should report `[OK]`. The
 shipped wheel must install cleanly into a fresh `python -m venv`
 and `ai-repo-safety init --python yes --github no` must produce
 the expected file set without raising.
@@ -75,9 +75,10 @@ authentication and disallow tokens". Trusted Publishing keeps
 working under that setting because it uses OIDC, not long-lived
 tokens.
 
-## 4. npm Trusted Publisher configuration
+## 4. npm publish configuration
 
-Navigate to `https://www.npmjs.com/package/ai-repo-safety/settings`
+Preferred setup: navigate to
+`https://www.npmjs.com/package/ai-repo-safety/settings`
 (you must be an owner or maintainer) and confirm the Trusted
 Publisher entry exists with these values:
 
@@ -88,11 +89,11 @@ Publisher entry exists with these values:
 - Allowed actions: `npm publish` (and `npm stage publish` if using
   staged publishing)
 
-After configuration: revoke the legacy `NPM_TOKEN` automation
-secret from `https://github.com/letya999/ai-repo-safety-skill/settings/secrets/actions`
-once you are confident the new OIDC flow is stable. Keeping
-`NPM_TOKEN` around indefinitely re-introduces a long-lived secret
-that an attacker could exfiltrate from a single log line.
+Fallback setup: if Trusted Publishing is not configured yet,
+confirm the GitHub Actions secret `NPM_TOKEN` exists and still has
+publish rights for the `ai-repo-safety` package. The repository
+currently supports both paths and will use `NPM_TOKEN` as the
+compatibility fallback.
 
 ## 5. GitHub branch protection (owner action)
 

@@ -51,26 +51,17 @@ def test_workflows_have_top_level_permissions() -> None:
     assert not offenders, "; ".join(offenders)
 
 
-def test_publish_npm_does_not_set_npm_token_for_publish_step() -> None:
+def test_publish_npm_declares_an_auth_path() -> None:
     publish = Path(".github/workflows/publish-npm.yml")
     if not publish.exists():
         return
     text = publish.read_text(encoding="utf-8")
     if "npm publish" not in text:
         return
-    publish_block = text.split("npm publish", 1)[1]
-    for line in publish_block.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("NODE_AUTH_TOKEN"):
-            continue
-        if "secrets." in line:
-            raise AssertionError(
-                f"publish-npm.yml: publish step still reads NODE_AUTH_TOKEN from a secret: {line}"
-            )
-        if "=" in line and not line.endswith('""'):
-            raise AssertionError(
-                f"publish-npm.yml: publish step sets NODE_AUTH_TOKEN to a non-empty value: {line}"
-            )
+    assert "id-token: write" in text or "NODE_AUTH_TOKEN" in text, (
+        "publish-npm.yml must declare either OIDC id-token permission "
+        "or a NODE_AUTH_TOKEN fallback for npm publish"
+    )
 
 
 def test_security_workflow_does_not_use_trufflehog_main() -> None:

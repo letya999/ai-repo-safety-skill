@@ -7,7 +7,7 @@ from ai_repo_safety.verify_release import (
     check_codeowners_present,
     check_npm_wrapper_no_latest,
     check_no_lit_wildcard_mutable_refs,
-    check_no_npm_token_publish_path,
+    check_npm_publish_auth_path,
     check_package_json_engines,
     check_version_consistency,
     check_wheel_smoke_script_present,
@@ -16,7 +16,7 @@ from ai_repo_safety.verify_release import (
 
 
 def test_version_consistency_passes_for_current_tree() -> None:
-    assert check_version_consistency(Path("."), "0.1.5") is None
+    assert check_version_consistency(Path("."), "0.1.6") is None
 
 
 def test_version_consistency_fails_on_mismatch(tmp_path: Path) -> None:
@@ -28,9 +28,9 @@ def test_version_consistency_fails_on_mismatch(tmp_path: Path) -> None:
     (tmp_path / "package.json").write_text(
         json.dumps({"name": "ai-repo-safety", "version": "0.0.1"}), encoding="utf-8"
     )
-    err = check_version_consistency(tmp_path, "0.1.5")
+    err = check_version_consistency(tmp_path, "0.1.6")
     assert err is not None
-    assert "0.0.1" in err and "0.1.5" in err
+    assert "0.0.1" in err and "0.1.6" in err
 
 
 def test_workflows_pin_full_sha_passes() -> None:
@@ -82,11 +82,11 @@ def test_artifact_manifest_script_present() -> None:
     assert check_artifact_manifest_script_present(Path(".")) is None
 
 
-def test_no_npm_token_publish_path_passes() -> None:
-    assert check_no_npm_token_publish_path(Path(".")) is None
+def test_npm_publish_auth_path_passes() -> None:
+    assert check_npm_publish_auth_path(Path(".")) is None
 
 
-def test_no_npm_token_publish_path_flags_secret_read(tmp_path: Path) -> None:
+def test_npm_publish_auth_path_flags_missing_auth(tmp_path: Path) -> None:
     (tmp_path / ".github" / "workflows").mkdir(parents=True)
     (tmp_path / ".github" / "workflows" / "publish-npm.yml").write_text(
         "name: publish-npm\n"
@@ -94,14 +94,12 @@ def test_no_npm_token_publish_path_flags_secret_read(tmp_path: Path) -> None:
         "  publish:\n"
         "    steps:\n"
         "      - name: publish\n"
-        "        run: npm publish --access public\n"
-        "        env:\n"
-        "          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}\n",
+        "        run: npm publish --access public\n",
         encoding="utf-8",
     )
-    err = check_no_npm_token_publish_path(tmp_path)
+    err = check_npm_publish_auth_path(tmp_path)
     assert err is not None
-    assert "NODE_AUTH_TOKEN" in err
+    assert "auth path" in err
 
 
 def test_package_json_engines_passes() -> None:

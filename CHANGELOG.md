@@ -5,6 +5,23 @@ file. Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-06-23
+
+### Fixed
+- Restored the working npm publish path by wiring
+  `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` back into
+  `publish-npm.yml`. `0.1.5` reached PyPI successfully, but npm
+  publish failed because the repository's Trusted Publisher path
+  was not yet active in practice.
+- `ai-repo-safety verify-release` now checks that the npm publish
+  workflow has a usable auth path instead of incorrectly
+  forbidding the token-based fallback that this repository still
+  relies on.
+- Release documentation now reflects the real support model:
+  PyPI is OIDC-first; npm prefers OIDC but still supports
+  `NPM_TOKEN` fallback until the Trusted Publisher path is fully
+  proven.
+
 ## [0.1.5] - 2026-06-23
 
 ### Added
