@@ -48,7 +48,7 @@ npx skills add letya999/ai-repo-safety-skill -a claude-code
 ```
 
 > **Branch and release model:** the default branch is `dev`.
-> Releases are tagged from `dev` (e.g. `v0.1.4`) and published to
+> Releases are tagged from `dev` (e.g. `v0.1.5`) and published to
 > PyPI and npm via Trusted Publishing on tag push. The
 > `ai-repo-safety verify-release --version X.Y.Z` command checks
 > that a release is ready before you push the tag.
@@ -142,7 +142,7 @@ ai-repo-safety threat-model --target .
 ai-repo-safety incident --target . --type secret-leak
 
 # Pre-release verification.
-ai-repo-safety verify-release --version 0.1.4 --target .
+ai-repo-safety verify-release --version 0.1.5 --target .
 ```
 
 ## AI Assistant Integrations

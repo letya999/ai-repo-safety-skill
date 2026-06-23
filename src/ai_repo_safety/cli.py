@@ -138,7 +138,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("verify-release", help="verify the project is ready for a new release")
     p.add_argument("--target", default=".")
-    p.add_argument("--version", required=True, help="expected release version, e.g. 0.1.4")
+    p.add_argument("--version", required=True, help="expected release version, e.g. 0.1.5")
     p.add_argument("--skip-build", action="store_true", help="do not run uv build")
 
     p = sub.add_parser("sbom", help="generate a CycloneDX SBOM (requires cyclonedx-bom)")

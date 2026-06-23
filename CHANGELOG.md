@@ -5,7 +5,7 @@ file. Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.1.4] - 2026-06-23
+## [0.1.5] - 2026-06-23
 
 ### Added
 - Minimal project-local agent hooks for Codex, Claude Code,
@@ -188,8 +188,8 @@ The `0.1.3` wheel published on PyPI and npm is broken: a fresh
 install followed by `ai-repo-safety init --python yes --github no`
 raises `FileNotFoundError` for `AGENTS.md` because the wheel
 distribution does not include the asset templates. The fix is
-in the next release; the next version is `0.1.4` (emergency
-patch). Maintainers may want to yank `0.1.3` with reason
+in the next release; the fix shipped in `0.1.4` and remains in
+`0.1.5`. Maintainers may want to yank `0.1.3` with reason
 `Broken package assets; ai-repo-safety init fails after install`.
 
 ### Added

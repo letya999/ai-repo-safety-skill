@@ -20,7 +20,7 @@ from ai_repo_safety.verify_release import verify_release
 
 
 def test_verify_release_returns_zero_on_clean_tree() -> None:
-    code = verify_release(Path("."), "0.1.4", skip_build=True)
+    code = verify_release(Path("."), "0.1.5", skip_build=True)
     assert code == 0, f"verify-release should return 0 on a clean tree, got {code}"
 
 
@@ -32,7 +32,7 @@ def test_verify_release_returns_one_when_codeowners_is_missing(tmp_path: Path) -
     # assert the exit code, not which individual check failed, so
     # that adding new checks to verify_release in the future does
     # not break this contract test.
-    code = verify_release(tmp_path, "0.1.4", skip_build=True)
+    code = verify_release(tmp_path, "0.1.5", skip_build=True)
     assert code == 1, f"verify-release should return 1 on a broken tree, got {code}"
 
 
@@ -41,7 +41,7 @@ def test_verify_release_skip_build_actually_skips_uv_build(tmp_path: Path) -> No
     twine check from running. The simplest way to assert that is
     to point the target at a tmp_path and confirm that no
     `dist/` subdirectory is created."""
-    code = verify_release(tmp_path, "0.1.4", skip_build=True)
+    code = verify_release(tmp_path, "0.1.5", skip_build=True)
     assert not (tmp_path / "dist").exists(), (
         "verify-release(skip_build=True) still created a dist/ directory"
     )

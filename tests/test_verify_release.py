@@ -16,7 +16,7 @@ from ai_repo_safety.verify_release import (
 
 
 def test_version_consistency_passes_for_current_tree() -> None:
-    assert check_version_consistency(Path("."), "0.1.4") is None
+    assert check_version_consistency(Path("."), "0.1.5") is None
 
 
 def test_version_consistency_fails_on_mismatch(tmp_path: Path) -> None:
@@ -28,9 +28,9 @@ def test_version_consistency_fails_on_mismatch(tmp_path: Path) -> None:
     (tmp_path / "package.json").write_text(
         json.dumps({"name": "ai-repo-safety", "version": "0.0.1"}), encoding="utf-8"
     )
-    err = check_version_consistency(tmp_path, "0.1.4")
+    err = check_version_consistency(tmp_path, "0.1.5")
     assert err is not None
-    assert "0.0.1" in err and "0.1.4" in err
+    assert "0.0.1" in err and "0.1.5" in err
 
 
 def test_workflows_pin_full_sha_passes() -> None:
