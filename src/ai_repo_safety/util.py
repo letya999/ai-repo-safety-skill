@@ -10,7 +10,7 @@ import subprocess  # nosec
 import sys
 from importlib import resources
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 PACKAGE = "ai_repo_safety"
 _logger = logging.getLogger("ai_repo_safety.util")
@@ -121,7 +121,12 @@ def append_marked_block(path: Path, marker: str, block: str) -> str:
     return "appended"
 
 
-def run_cmd(args: Sequence[str], cwd: Path | None = None, timeout: int = 120) -> tuple[int, str, str]:
+def run_cmd(
+    args: Sequence[str],
+    cwd: Path | None = None,
+    timeout: int = 120,
+    env: Mapping[str, str] | None = None,
+) -> tuple[int, str, str]:
     try:
         proc = subprocess.run(  # nosec
             list(args),
@@ -132,6 +137,7 @@ def run_cmd(args: Sequence[str], cwd: Path | None = None, timeout: int = 120) ->
             errors="replace",
             timeout=timeout,
             shell=False,
+            env=dict(env) if env is not None else None,
         )
         return proc.returncode, proc.stdout, proc.stderr
     except FileNotFoundError as exc:
@@ -210,6 +216,35 @@ def detect_github_project(root: Path) -> bool:
     return bool(parse_github_repo_from_url(git_origin(root)))
 
 
+def parse_gitlab_repo_from_url(url: str | None, gitlab_host: str = "gitlab.com") -> str | None:
+    """Extract the namespace/project path from a GitLab remote URL.
+
+    Handles both HTTPS and SSH remote formats:
+      https://gitlab.com/ns/project.git  -> ns/project
+      git@gitlab.com:ns/sub/project.git  -> ns/sub/project
+      https://internal.corp/ns/project   -> ns/project  (when gitlab_host set)
+      git@internal.corp:ns/project.git   -> ns/project  (when gitlab_host set)
+    """
+    if not url:
+        return None
+    host_escaped = re.escape(gitlab_host)
+    # SSH: git@host:path/to/repo(.git)?
+    ssh_pat = rf"^git@{host_escaped}:(?P<repo_path>[A-Za-z0-9_./-]+?)(?:\.git)?$"
+    # HTTPS: https?://host/path/to/repo(.git)?
+    https_pat = rf"https?://{host_escaped}/(?P<repo_path>[A-Za-z0-9_./-]+?)(?:\.git)?$"
+    for pat in (ssh_pat, https_pat):
+        m = re.search(pat, url.strip())
+        if m:
+            return m.group("repo_path").strip("/")
+    return None
+
+
+def detect_gitlab_project(root: Path) -> bool:
+    if (root / ".gitlab-ci.yml").exists() or (root / ".gitlab").exists():
+        return True
+    return bool(parse_gitlab_repo_from_url(git_origin(root)))
+
+
 def load_json(path: Path, default: dict | None = None) -> dict:
     if not path.exists():
         return default or {}
@@ -248,8 +283,10 @@ __all__ = [
     "git_has_commits",
     "git_origin",
     "parse_github_repo_from_url",
+    "parse_gitlab_repo_from_url",
     "detect_python_project",
     "detect_github_project",
+    "detect_gitlab_project",
     "load_json",
     "dump_json",
     "print_table",

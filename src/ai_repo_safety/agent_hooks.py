@@ -8,6 +8,14 @@ from .util import asset_text, project_root, write_text
 SUPPORTED_TOOLS = ("codex", "claude", "opencode", "antigravity")
 
 
+def _python_hook_command() -> str:
+    return "python scripts/security/agent_hook_runner.py"
+
+
+def _python_hook_command_windows() -> str:
+    return "py -3 scripts/security/agent_hook_runner.py"
+
+
 def _copy_runtime_assets(root: Path, *, overwrite: bool = False) -> list[str]:
     actions: list[str] = []
     assets = [
@@ -31,11 +39,34 @@ def _codex_hooks_json() -> str:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": "python scripts/security/agent_hook_runner.py --profile sensitive-preflight",
+                            "command": f"{_python_hook_command()} --profile sensitive-preflight",
+                            "commandWindows": f"{_python_hook_command_windows()} --profile sensitive-preflight",
                             "statusMessage": "Running repo safety preflight",
                         },
                     ],
-                }
+                },
+                {
+                    "matcher": "^mcp__github__.*$",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f"{_python_hook_command()} --profile mcp-invocation-audit",
+                            "commandWindows": f"{_python_hook_command_windows()} --profile mcp-invocation-audit",
+                            "statusMessage": "Auditing MCP tool invocation",
+                        },
+                    ],
+                },
+                {
+                    "matcher": "^mcp__gitlab__.*$",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f"{_python_hook_command()} --profile mcp-invocation-audit",
+                            "commandWindows": f"{_python_hook_command_windows()} --profile mcp-invocation-audit",
+                            "statusMessage": "Auditing MCP tool invocation",
+                        },
+                    ],
+                },
             ]
         }
     }
@@ -59,7 +90,35 @@ def _claude_settings_json() -> str:
                             ],
                         },
                     ],
-                }
+                },
+                {
+                    "matcher": "^mcp__github__.*$",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "python",
+                            "args": [
+                                "${CLAUDE_PROJECT_DIR}/scripts/security/agent_hook_runner.py",
+                                "--profile",
+                                "mcp-invocation-audit",
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "matcher": "^mcp__gitlab__.*$",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "python",
+                            "args": [
+                                "${CLAUDE_PROJECT_DIR}/scripts/security/agent_hook_runner.py",
+                                "--profile",
+                                "mcp-invocation-audit",
+                            ],
+                        },
+                    ],
+                },
             ]
         }
     }
@@ -93,7 +152,8 @@ def _antigravity_hooks_json() -> str:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": "python scripts/security/agent_hook_runner.py --profile sensitive-preflight",
+                            "command": f"{_python_hook_command()} --profile sensitive-preflight",
+                            "commandWindows": f"{_python_hook_command_windows()} --profile sensitive-preflight",
                             "statusMessage": "Running repo safety preflight",
                         },
                     ],

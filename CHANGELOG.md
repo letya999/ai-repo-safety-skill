@@ -3,51 +3,73 @@
 All notable changes to this project will be documented in this
 file. Versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — June 2026 audit follow-up
+## [Unreleased]
 
-### Fixed
-- The `ai-repo-safety sbom` command previously invoked
-  `cyclonedx-py project`, which is not a real subcommand of
-  `cyclonedx-bom` v7.3.0 (March 2026). The command now dispatches
-  to the documented subcommands `environment`, `requirements`,
-  `pipenv`, or `poetry`. The default scope changed from
-  `project` to `environment`. The PyPI package name is
-  `cyclonedx-bom`; the installed binary keeps the historical
-  name `cyclonedx-py`.
-- `index.js` is now a documented no-op proxy (`module.exports =
-  {}`) that satisfies `package.json.main` for `npm ls` and
-  IDEs without misleading consumers into believing there is a
-  Node API.
-- `package.json` now declares the runtime floors that the
-  June 2026 npm Trusted Publishing reference requires:
-  `engines.node: ">=18"` and `engines.npm: ">=11.5.1"`. The
-  publish workflow continues to use Node 22.14.0 explicitly.
-- The asset template `assets/scripts/github_read_guard.py`
-  (a 4-line placeholder) and `assets/scripts/scan_secrets.py`
-  (referenced by no other code path) have been removed. The
-  `bootstrap.apply_universal` script list is now exactly
-  `forbid_sensitive_files.py`, `prepush.py`, and
-  `scan_mcp_config.py`.
+## [0.1.4] - 2026-06-23
 
 ### Added
-- `.github/CODEOWNERS` gates changes to `.github/workflows/`,
-  `src/ai_repo_safety/assets/**`, `renovate.json`, `AGENTS.md`,
-  `SECURITY.md`, `CHANGELOG.md`, and a default catch-all. This
-  is the social complement to the SHA-pinning convention that
-  was already in place; the placeholder `@letya999/maintainers`
-  must be replaced with the actual team or user handles before
-  the maintainer merges their first workflow change.
+- Minimal project-local agent hooks for Codex, Claude Code,
+  OpenCode, and Antigravity. `ai-repo-safety install-agent-hooks`
+  now generates repo-local runtime configs plus a shared
+  cross-platform `agent_hook_runner.py` for pre-tool security
+  gates on Windows, WSL, macOS, and Linux.
+- MCP hardening for GitHub and GitLab usage:
+  `scan_mcp_config.py` now checks for plaintext credentials,
+  over-privileged scopes, unpinned `npx` / `uvx` launchers,
+  mutable `docker:latest`, expiry / rotation gaps, and missing
+  audit hints in sensitive configs.
+- `ai-repo-safety git-integrity --target .`, a lightweight local
+  audit for suspicious history rewriting, attribution anomalies,
+  and unsigned-history hints before release.
+- `gitlab-guard` parity with `github-guard`, plus packaged GitLab
+  templates and tests so GitLab context reads and CI templates
+  are covered by the same safety posture.
+- `.github/CODEOWNERS` gates changes to workflows, packaged
+  assets, release-policy files, and the default catch-all. This
+  complements SHA-pinned GitHub Actions with a review barrier.
 - `package.json` `scripts.pack:check` and `scripts.smoke:bin`
   for local npm verification.
-- `docs/release-checklist.md` is a 10-step manual procedure the
-  maintainer follows at release time. It covers local
-  pre-flight, CI green, PyPI and npm Trusted Publisher
-  configuration, GitHub branch protection, signed tag and
-  push, and post-release verification. Most steps are
-  complemented by the automated `ai-repo-safety verify-release`
-  command.
+- `docs/release-checklist.md` now documents the maintainer's
+  end-to-end release procedure, including local pre-flight, CI
+  green, Trusted Publisher setup, signed tags, and
+  post-publish verification.
+- `ai-repo-safety verify-release --version X.Y.Z` performs a
+  set of pre-release checks: version consistency, workflow SHA
+  pinning, no `NODE_AUTH_TOKEN` in the publish step, smoke
+  scripts present, npm wrapper pinned, and an optional
+  `uv build + twine check + artifact manifest` round-trip.
+- `src/ai_repo_safety/results.py` defines `Status`, `Severity`,
+  `FindingCategory`, `ToolRun`, `Finding`, and `ScanReport`
+  dataclasses with a documented exit code contract:
+  `0` ok, `1` findings, `2` tool error, `3` partial,
+  `4` policy violation, `5` internal error.
+- `scripts/smoke-wheel.sh` and
+  `scripts/check-package-artifacts.py` provide an installed-wheel
+  smoke that catches the `0.1.3` regression class before
+  publication.
+- `tests/test_packaging.py`,
+  `tests/test_fast_scan.py`,
+  `tests/test_util_path.py`,
+  `tests/test_results.py`,
+  `tests/test_github_guard.py`,
+  `tests/test_verify_release.py`,
+  `tests/test_hooks.py` and the new hook / guard parity suites
+  keep the release path deterministic and network-free.
+- `docs/opencode.md` describes the recommended OpenCode flow
+  for projects that have run `ai-repo-safety init`.
+- A root `AGENTS.md` and `SECURITY.md` so this repository
+  dogfoods its own safety guardrails.
 
 ### Changed
+- The default sensitive-command preflight is now a compact
+  security profile: `gitleaks` and `trufflehog` are mandatory,
+  `opengrep` runs when a rulepack exists, and `bandit` runs when
+  the repo looks like Python. This keeps the hook surface small
+  while still gating the highest-risk operations.
+- Project-local MCP hook coverage is now explicit for
+  `mcp__github__.*` and `mcp__gitlab__.*` instead of a single
+  ambiguous matcher, and generated configs now include explicit
+  Windows command fields where runtimes support them.
 - `publish-pypi.yml` now uses `uv build --no-sources` per the
   uv documentation recommendation for release builds, so the
   wheel builds identically under `pypa/build` and any other
@@ -65,8 +87,6 @@ file. Versions follow [Semantic Versioning](https://semver.org/).
   enables `pinDigests: true` for action dependencies. The
   `automerge: false` policy is preserved so the maintainer
   reviews dependency bumps manually.
-
-## [Unreleased] — Phase 1 emergency release repair
 
 ### Fixed
 - Wheel and sdist artifacts now include every asset template the
@@ -86,6 +106,10 @@ file. Versions follow [Semantic Versioning](https://semver.org/).
 - `setup` is plan-only by default and refuses to install system
   tools, run git hooks, or call any GitHub API unless the caller
   passes `--apply --yes` and the matching opt-in flag. (D4)
+- The generated hook preflight and the repo's own `scan` command
+  now exclude `src/ai_repo_safety/assets/rules/opengrep/` from
+  OpenGrep target scanning. This prevents the tool from
+  self-reporting on its own rule definitions during dogfooding.
 - `test_setup_project` is now deterministic and CI-friendly: it
   runs the default plan mode and does not require network,
   installed scanners, or `gh` auth. (D3)
@@ -110,34 +134,28 @@ file. Versions follow [Semantic Versioning](https://semver.org/).
 - The scanner has an `offline` mode that skips `pip-audit` with
   a clear `skipped: network_required` status rather than failing
   the run.
-
-### Added
-- `ai-repo-safety verify-release --version X.Y.Z` performs a
-  set of pre-release checks: version consistency, workflow SHA
-  pinning, no `NODE_AUTH_TOKEN` in the publish step, smoke
-  scripts present, npm wrapper pinned, and an optional
-  `uv build + twine check + artifact manifest` round-trip.
-- `src/ai_repo_safety/results.py` defines `Status`, `Severity`,
-  `FindingCategory`, `ToolRun`, `Finding`, and `ScanReport`
-  dataclasses with a documented exit code contract:
-  `0` ok, `1` findings, `2` tool error, `3` partial,
-  `4` policy violation, `5` internal error.
-- `scripts/smoke-wheel.sh` and
-  `scripts/check-package-artifacts.py` provide an installed-wheel
-  smoke that catches the `0.1.3` regression class before
-  publication.
-- `tests/test_packaging.py`,
-  `tests/test_fast_scan.py`,
-  `tests/test_util_path.py`,
-  `tests/test_results.py`,
-  `tests/test_github_guard.py`,
-  `tests/test_verify_release.py`,
-  `tests/test_hooks.py` — 50 test cases in total, all
-  deterministic and network-free.
-- `docs/opencode.md` describes the recommended OpenCode flow
-  for projects that have run `ai-repo-safety init`.
-- A root `AGENTS.md` and `SECURITY.md` so this repository
-  dogfoods its own safety guardrails.
+- The `ai-repo-safety sbom` command previously invoked
+  `cyclonedx-py project`, which is not a real subcommand of
+  `cyclonedx-bom` v7.3.0 (March 2026). The command now dispatches
+  to the documented subcommands `environment`, `requirements`,
+  `pipenv`, or `poetry`. The default scope changed from
+  `project` to `environment`. The PyPI package name is
+  `cyclonedx-bom`; the installed binary keeps the historical
+  name `cyclonedx-py`.
+- `index.js` is now a documented no-op proxy (`module.exports =
+  {}`) that satisfies `package.json.main` for `npm ls` and
+  IDEs without misleading consumers into believing there is a
+  Node API.
+- `package.json` now declares the runtime floors that the
+  June 2026 npm Trusted Publishing reference requires:
+  `engines.node: ">=18"` and `engines.npm: ">=11.5.1"`. The
+  publish workflow continues to use Node 22.14.0 explicitly.
+- The asset template `assets/scripts/github_read_guard.py`
+  (a 4-line placeholder) and `assets/scripts/scan_secrets.py`
+  (referenced by no other code path) have been removed. The
+  `bootstrap.apply_universal` script list is now exactly
+  `forbid_sensitive_files.py`, `prepush.py`, and
+  `scan_mcp_config.py`.
 
 ### CI / release
 - Every `uses:` ref in `.github/workflows/*.yml` is pinned to

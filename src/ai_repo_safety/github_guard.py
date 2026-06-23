@@ -1,3 +1,9 @@
+"""github_guard.py — read guard for GitHub issues, PRs, branches, and commits.
+
+Fetches data via ``gh api`` and applies policy from ``.repo-safety.json``
+(``github_read_guard`` section). Redacts secrets and optionally blocks
+prompt-injection patterns before the payload reaches the AI context.
+"""
 from __future__ import annotations
 
 import json
@@ -79,17 +85,21 @@ def redact(text: str) -> tuple[str, int]:
 
 
 def has_prompt_injection(text: str) -> list[str]:
-    hits = []
-    for pattern in PROMPT_INJECTION_PATTERNS:
-        if pattern.search(text):
-            hits.append(pattern.pattern)
-    return hits
+    """Return list of matched prompt-injection pattern strings (empty if clean)."""
+    return [p.pattern for p in PROMPT_INJECTION_PATTERNS if p.search(text)]
 
 
-DROP_FIELDS = {
-    "node_id", "gravatar_id", "site_admin", "performed_via_github_app", 
-    "author_association", "active_lock_reason", "state_reason"
-}
+# Fields that add noise/privacy risk with no value for AI context.
+# GitHub-specific internal metadata that leaks implementation details.
+DROP_FIELDS: frozenset[str] = frozenset({
+    "node_id",
+    "gravatar_id",
+    "site_admin",
+    "performed_via_github_app",
+    "author_association",
+    "active_lock_reason",
+    "state_reason",
+})
 
 def sanitize_payload(payload: Any, *, max_body_chars: int, block_prompt_injection: bool) -> tuple[Any, list[str], int]:
     warnings: list[str] = []
@@ -98,16 +108,17 @@ def sanitize_payload(payload: Any, *, max_body_chars: int, block_prompt_injectio
     def walk(value: Any, path: str = "$") -> Any:
         nonlocal warnings, total_redactions
         if isinstance(value, dict):
-            new_dict = {}
+            result: dict[str, Any] = {}
             for k, v in value.items():
-                if k == "body_html":
+                # Drop HTML-rendered bodies — verbose noise
+                if k in ("body_html", "title_html"):
                     continue
                 if k.endswith("_url") and k != "html_url":
                     continue
                 if k in DROP_FIELDS:
                     continue
-                new_dict[k] = walk(v, f"{path}.{k}")
-            return new_dict
+                result[k] = walk(v, f"{path}.{k}")
+            return result
         if isinstance(value, list):
             return [walk(v, f"{path}[]") for v in value]
         if isinstance(value, str):
@@ -165,45 +176,56 @@ def read_github(root: Path, repo: str, resource: str, reason: str | None, limit:
     return 0
 
 
+def _print_check_result(
+    *,
+    injection: bool,
+    patterns: list[str],
+    redacted: str,
+    error: str = "",
+    redacted_count: int = 0,
+) -> None:
+    result: dict[str, Any] = {
+        "prompt_injection_like": injection,
+        "patterns": patterns,
+        "redacted_text": redacted,
+        "redacted_secrets_count": redacted_count,
+    }
+    if error:
+        result["error"] = error
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+
+
 def check_text(root: Path, file: str | None, text: str | None) -> int:
+    """Scan a file or inline text for prompt injection and secrets.
+
+    Reject paths that escape the target root — this prevents an agent from
+    using ``github-guard check-text`` to exfiltrate ``/etc/passwd`` or
+    another host file the user did not intend to scan.
+
+    Exit codes: 0 = clean, 1 = injection found, 2 = I/O error, 4 = path escape.
+    """
     if file:
-        # Reject paths that escape the target root. This prevents
-        # an agent from using ai-repo-safety github-guard check-text
-        # to exfiltrate /etc/passwd or another host file the user
-        # did not intend to scan.
         root_resolved = Path(root).resolve()
         candidate = (root_resolved / file).resolve()
         try:
             candidate.relative_to(root_resolved)
         except ValueError:
-            result = {
-                "prompt_injection_like": False,
-                "patterns": [],
-                "redacted_text": "",
-                "error": f"path escapes target root: {file}",
-            }
-            print(json.dumps(result, indent=2, ensure_ascii=False))
+            _print_check_result(
+                injection=False, patterns=[], redacted="",
+                error=f"path escapes target root: {file}",
+            )
             return 4
         try:
             raw = candidate.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:
-            result = {
-                "prompt_injection_like": False,
-                "patterns": [],
-                "redacted_text": "",
-                "error": f"could not read file: {exc}",
-            }
-            print(json.dumps(result, indent=2, ensure_ascii=False))
+            _print_check_result(
+                injection=False, patterns=[], redacted="",
+                error=f"could not read file: {exc}",
+            )
             return 2
     else:
         raw = text or ""
     clean, count = redact(raw)
     hits = has_prompt_injection(clean)
-    result = {
-        "prompt_injection_like": bool(hits),
-        "patterns": hits,
-        "redacted_text": clean,
-        "redacted_secrets_count": count,
-    }
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    _print_check_result(injection=bool(hits), patterns=hits, redacted=clean, redacted_count=count)
     return 1 if hits else 0

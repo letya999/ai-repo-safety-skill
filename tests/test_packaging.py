@@ -13,6 +13,7 @@ import pytest
 # (`scripts/smoke-wheel.sh`).
 REQUIRED_ASSETS: tuple[str, ...] = (
     "docs/agent-hooks.md",
+    "docs/git-integrity.md",
     "templates/universal/AGENTS.md",
     "templates/universal/SECURITY.md",
     "templates/universal/env.example",

@@ -1,18 +1,27 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+from typing import Mapping
 
 from .util import project_root, run_cmd, which, git_has_commits
 
 
-def run_available(command: list[str], *, cwd: Path, required: bool = False, timeout: int = 300) -> tuple[int, str, str]:
+def run_available(
+    command: list[str],
+    *,
+    cwd: Path,
+    required: bool = False,
+    timeout: int = 300,
+    env: Mapping[str, str] | None = None,
+) -> tuple[int, str, str]:
     if not which(command[0]):
         level = "ERROR" if required else "WARN"
         print(f"[repo-safety] {level}: missing tool `{command[0]}`; run `ai-repo-safety doctor --agent-plan`")
         return 127, "", f"missing:{command[0]}"
     print(f"[repo-safety] running: {' '.join(command)}")
-    code, out, err = run_cmd(command, cwd=cwd, timeout=timeout)
+    code, out, err = run_cmd(command, cwd=cwd, timeout=timeout, env=env)
     if out:
         print(out.rstrip())
     if err:
@@ -81,6 +90,7 @@ def scan(target: str | Path, *, strict: bool = False, offline: bool = False) -> 
                     "trufflehog",
                     "git",
                     "file://.",
+                    "--no-update",
                     "--since-commit",
                     since,
                     "--results=verified,unknown",
@@ -89,11 +99,11 @@ def scan(target: str | Path, *, strict: bool = False, offline: bool = False) -> 
             )
         else:
             commands.append(
-                ["trufflehog", "filesystem", ".", "--results=verified,unknown", "--fail"]
+                ["trufflehog", "filesystem", ".", "--no-update", "--results=verified,unknown", "--fail"]
             )
     else:
         commands.append(
-            ["trufflehog", "filesystem", ".", "--results=verified,unknown", "--fail"]
+            ["trufflehog", "filesystem", ".", "--no-update", "--results=verified,unknown", "--fail"]
         )
 
     for command in commands:
@@ -105,7 +115,14 @@ def scan(target: str | Path, *, strict: bool = False, offline: bool = False) -> 
 
     opengrep_rules = root / ".repo-safety" / "opengrep"
     if opengrep_rules.exists():
-        command = ["opengrep", "--config", str(opengrep_rules), "."]
+        command = [
+            "opengrep",
+            "--config",
+            str(opengrep_rules),
+            "--exclude",
+            "src/ai_repo_safety/assets/rules/opengrep/",
+            ".",
+        ]
         code, _, _ = run_available(command, cwd=root, required=False)
         if code not in (0, 127):
             failures += 1
@@ -124,7 +141,9 @@ def scan(target: str | Path, *, strict: bool = False, offline: bool = False) -> 
             network_required_skipped.append("pip-audit")
         else:
             command = ["pip-audit"]
-            code, _, _ = run_available(command, cwd=root, required=False)
+            env = os.environ.copy()
+            env["PIPAPI_PYTHON_LOCATION"] = sys.executable
+            code, _, _ = run_available(command, cwd=root, required=False, env=env)
             if code not in (0, 127):
                 if code == 127:
                     network_required_skipped.append("pip-audit")
@@ -158,6 +177,7 @@ def prepush(target: str | Path, *, offline: bool = False) -> int:
                     "trufflehog",
                     "git",
                     "file://.",
+                    "--no-update",
                     "--since-commit",
                     since,
                     "--results=verified,unknown",
@@ -166,11 +186,11 @@ def prepush(target: str | Path, *, offline: bool = False) -> int:
             )
         else:
             commands.append(
-                ["trufflehog", "filesystem", ".", "--results=verified,unknown", "--fail"]
+                ["trufflehog", "filesystem", ".", "--no-update", "--results=verified,unknown", "--fail"]
             )
     else:
         commands.append(
-            ["trufflehog", "filesystem", ".", "--results=verified,unknown", "--fail"]
+            ["trufflehog", "filesystem", ".", "--no-update", "--results=verified,unknown", "--fail"]
         )
 
     for command in commands:

@@ -62,6 +62,7 @@ def test_installed_wheel_contains_all_required_assets() -> None:
         pytest.skip("no wheel in dist/")
     required = {
         "ai_repo_safety/assets/docs/agent-hooks.md",
+        "ai_repo_safety/assets/docs/git-integrity.md",
         "ai_repo_safety/assets/templates/universal/AGENTS.md",
         "ai_repo_safety/assets/templates/universal/SECURITY.md",
         "ai_repo_safety/assets/templates/python/bandit.yaml",

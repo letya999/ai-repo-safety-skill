@@ -20,6 +20,15 @@ follows:
 3. run `opengrep` when `.repo-safety/opengrep/` exists
 4. run `bandit` when the repo looks like a Python project
 
+For `Codex` and `Claude Code`, the generated project hooks also add
+an MCP invocation audit for `mcp__github__.*` and `mcp__gitlab__.*`.
+Those hooks:
+
+1. append JSONL audit records to `.repo-safety/logs/mcp-audit.jsonl`
+2. allow read-style tools
+3. block write-capable GitHub/GitLab MCP tools by default unless the
+   repo explicitly allowlists them in `.repo-safety.json`
+
 The generated hooks run **only** before sensitive commands such as:
 
 - `git commit`
@@ -63,10 +72,10 @@ docs/agent-hooks.md
 
 | Runtime | Project-local entrypoint | How it is discovered | Activation notes |
 | --- | --- | --- | --- |
-| Codex | `.codex/hooks.json` | Codex reads project hooks from the repo `.codex/` layer alongside user/system layers | The project layer must be trusted; review via `/hooks` if Codex marks the hook as untrusted |
-| Claude Code | `.claude/settings.json` | Claude Code reads hooks under the `hooks` key from project settings | If the session is already open, reload or restart the session after changing the file |
+| Codex | `.codex/hooks.json` | Codex reads project hooks from the repo `.codex/` layer alongside user/system layers | The project layer must be trusted; review via `/hooks` if Codex marks the hook as untrusted. The generated config includes `commandWindows` overrides for Windows and separate GitHub/GitLab MCP matcher groups |
+| Claude Code | `.claude/settings.json` | Claude Code reads hooks under the `hooks` key from project settings | If the session is already open, reload or restart the session after changing the file. This runtime gets shell preflight plus MCP GitHub/GitLab audit |
 | OpenCode | `.opencode/plugins/ai-repo-safety.js` | OpenCode auto-loads project plugins from `.opencode/plugins/` at startup | Restart or reload OpenCode if the project was already open before generation |
-| Antigravity | `.agents/hooks.json` | Antigravity uses workspace/project customization under `.agents/` | Restart or reload the workspace so the runtime re-reads the workspace hook config |
+| Antigravity | `.agents/hooks.json` | Antigravity uses workspace/project customization under `.agents/` | Restart or reload the workspace so the runtime re-reads the workspace hook config. The generated config includes a Windows-specific command override |
 
 ## Project Scope
 
@@ -90,6 +99,31 @@ These hooks are intentionally **project-local**, not global:
   `hooks.json` file.
 - `Codex`, `Claude Code`, and `Antigravity` use project-local config
   files that trigger a shell-command hook before sensitive commands.
+- `Codex` and `Antigravity` emit `commandWindows` overrides so the
+  generated hook stays usable on Windows without depending on shell
+  path translation.
+- The current MCP audit is intentionally narrower than the shell
+  gate: it focuses on GitHub/GitLab MCP tools where delegated API
+  actions are most likely to mutate external systems silently.
+
+## MCP Policy
+
+Optional repository policy in `.repo-safety.json`:
+
+```json
+{
+  "mcp_policy": {
+    "audit_log": ".repo-safety/logs/mcp-audit.jsonl",
+    "allow_write_tools": [
+      "mcp__gitlab__create_merge_request_note"
+    ]
+  }
+}
+```
+
+- `audit_log`: overrides the default JSONL path
+- `allow_write_tools`: regex patterns matched with `re.fullmatch`
+  against the MCP tool name
 
 ## Limits
 

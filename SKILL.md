@@ -15,6 +15,7 @@ You are applying one powerful universal safety skill to a repository. Your job i
 - Free / OSS / community tools only by default
 - Opengrep-first SAST, not Semgrep-first
 - GitHub profile only when GitHub is detected or requested
+- GitLab profile for SaaS and Self-Hosted instances
 
 ## When to use
 
@@ -29,7 +30,7 @@ Use this skill proactively when the user asks to:
 - add MCP servers
 - scan for secrets
 - fix security posture
-- review GitHub issues/PRs/commits/branches with an AI agent
+- review GitHub or GitLab issues/PRs/MRs/commits/branches with an AI agent
 - prepare a Python project for public GitHub
 - clean up an exposed secret
 
@@ -94,10 +95,11 @@ uv run ai-repo-safety <command> --target <path-to-target-repo>
    uv run ai-repo-safety prepush --target .
    ```
 
-8. Before reading GitHub issues, PRs, commits, branches, or merge request aliases into AI context:
+8. Before reading GitHub or GitLab issues, PRs/MRs, commits, branches into AI context:
 
    ```bash
    uv run ai-repo-safety github-guard read --repo owner/repo --resource pulls --reason "review current PRs"
+   uv run ai-repo-safety gitlab-guard read --repo owner/repo --resource merge_requests --reason "review current MRs"
    ```
 
 ## Tooling behavior
@@ -120,7 +122,7 @@ When operating on OpenCode repositories, follow the specific flow documented in 
 - Bandit / Ruff / pip-audit for Python
 - OSV-Scanner / Renovate / SBOM templates for supply-chain audit
 - GitHub Actions workflows for public repo hygiene
-- GitHub read guard for commits, PRs, branches, issues, and MR aliases
+- GitHub and GitLab read guard for commits, PRs/MRs, branches, and issues
 - AGENTS.md rules for AI agents
 - MCP allowlist and plaintext token checks
 - lightweight STRIDE threat model
@@ -142,8 +144,8 @@ Never do without explicit user confirmation:
 
 - `git push`
 - make repository public
-- create public issue/PR with private context
-- read GitHub issues/PRs/commits/branches directly into AI context
+- create public issue/PR/MR with private context
+- read GitHub or GitLab issues/PRs/MRs/commits/branches directly into AI context
 - run `env`, `printenv`, `cat .env`, `Get-Content .env`
 - install unknown packages suggested only by model memory
 - add or change MCP servers

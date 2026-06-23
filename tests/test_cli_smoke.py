@@ -32,12 +32,20 @@ def test_install_agent_hooks_writes_runtime_configs(tmp_path: Path) -> None:
     codex_data = json.loads(codex_hooks.read_text(encoding="utf-8"))
     assert codex_data["hooks"]["PreToolUse"][0]["matcher"] == "Bash"
     assert "--profile sensitive-preflight" in codex_data["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    assert "commandWindows" in codex_data["hooks"]["PreToolUse"][0]["hooks"][0]
+    assert codex_data["hooks"]["PreToolUse"][1]["matcher"] == "^mcp__github__.*$"
+    assert "--profile mcp-invocation-audit" in codex_data["hooks"]["PreToolUse"][1]["hooks"][0]["command"]
+    assert codex_data["hooks"]["PreToolUse"][2]["matcher"] == "^mcp__gitlab__.*$"
 
     claude_settings = tmp_path / ".claude" / "settings.json"
     assert claude_settings.exists()
     claude_data = json.loads(claude_settings.read_text(encoding="utf-8"))
     claude_args = claude_data["hooks"]["PreToolUse"][0]["hooks"][0]["args"]
     assert claude_args[-2:] == ["--profile", "sensitive-preflight"]
+    claude_mcp = claude_data["hooks"]["PreToolUse"][1]
+    assert claude_mcp["matcher"] == "^mcp__github__.*$"
+    assert claude_mcp["hooks"][0]["args"][-2:] == ["--profile", "mcp-invocation-audit"]
+    assert claude_data["hooks"]["PreToolUse"][2]["matcher"] == "^mcp__gitlab__.*$"
 
     opencode_plugin = tmp_path / ".opencode" / "plugins" / "ai-repo-safety.js"
     assert opencode_plugin.exists()
@@ -49,6 +57,7 @@ def test_install_agent_hooks_writes_runtime_configs(tmp_path: Path) -> None:
     assert antigravity_hooks.exists()
     antigravity_data = json.loads(antigravity_hooks.read_text(encoding="utf-8"))
     assert antigravity_data["hooks"]["PreToolUse"][0]["matcher"] == "Bash"
+    assert "commandWindows" in antigravity_data["hooks"]["PreToolUse"][0]["hooks"][0]
 
 
 def test_install_agent_hooks_for_single_runtime_scopes_output(tmp_path: Path) -> None:

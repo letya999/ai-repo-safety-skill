@@ -1,0 +1,25 @@
+stages:
+  - security
+  - pre-release
+
+variables:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+sast:
+  stage: security
+  image: python:3.12-slim
+  script:
+    - pip install ai-repo-safety uv
+    - uv run ai-repo-safety scan --target . --strict
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+verify_release:
+  stage: pre-release
+  image: python:3.12-slim
+  script:
+    - pip install ai-repo-safety uv
+    - uv run ai-repo-safety verify-release --target . --version $CI_COMMIT_TAG
+  rules:
+    - if: $CI_COMMIT_TAG

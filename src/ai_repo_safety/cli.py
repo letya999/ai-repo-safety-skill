@@ -7,6 +7,7 @@ from .agent_hooks import install_agent_hooks
 from .bootstrap import init_project, setup_project
 from .github_guard import check_text, read_github, validate_request
 from .gitlab_guard import check_text as gl_check_text, read_gitlab, validate_request as gl_validate_request
+from .git_integrity import audit_git_integrity
 from .hooks import install_hooks
 from .incident import create as create_incident
 from .scanner import prepush, scan
@@ -131,6 +132,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", default=".")
     p.add_argument("--type", default="secret-leak")
     p.add_argument("--overwrite", action="store_true")
+
+    p = sub.add_parser("git-integrity", help="audit local git history integrity signals and attribution hints")
+    p.add_argument("--target", default=".")
 
     p = sub.add_parser("verify-release", help="verify the project is ready for a new release")
     p.add_argument("--target", default=".")
@@ -278,6 +282,8 @@ def main(argv: list[str] | None = None) -> int:
         return generate_threat_model(args.target, overwrite=args.overwrite)
     if args.cmd == "incident":
         return create_incident(args.target, incident_type=args.type, overwrite=args.overwrite)
+    if args.cmd == "git-integrity":
+        return audit_git_integrity(args.target)
     if args.cmd == "verify-release":
         return verify_release(
             args.target,

@@ -17,6 +17,10 @@ from .util import (
 
 DEFAULT_POLICY = {
     "version": 1,
+    "mcp_policy": {
+        "audit_log": ".repo-safety/logs/mcp-audit.jsonl",
+        "allow_write_tools": [],
+    },
     "github_read_guard": {
         "mode": "strict",
         "allowed_repositories": [],
@@ -67,6 +71,7 @@ def apply_universal(root: Path, *, overwrite: bool = False) -> list[str]:
         ("docs/mcp-safety.md", "docs/mcp-safety.md"),
         ("docs/incident-cleanup.md", "docs/incident-cleanup.md"),
         ("docs/git-history-cleanup.md", "docs/git-history-cleanup.md"),
+        ("docs/git-integrity.md", "docs/git-integrity.md"),
         ("docs/mitigation-map.md", "docs/mitigation-map.md"),
         ("docs/threat-model-template.md", "docs/threat-model.md"),
         ("docs/opencode.md", "docs/opencode.md"),

@@ -16,6 +16,7 @@ git status                           # clean
 git fetch origin                     # origin/dev and origin/main in sync
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/ -q
 ruff check .
+ai-repo-safety git-integrity --target .
 rm -rf dist && uv build --no-sources
 uvx twine check dist/*
 python scripts/check-package-artifacts.py
@@ -27,6 +28,11 @@ All eight `verify-release` checks should report `[OK]`. The
 shipped wheel must install cleanly into a fresh `python -m venv`
 and `ai-repo-safety init --python yes --github no` must produce
 the expected file set without raising.
+
+If `git-integrity` reports warnings, review them before tagging.
+Warnings do not automatically prove compromise, but they are a
+signal to inspect branch divergence, reflog rewrite events, blame,
+and signature state before trusting the release history.
 
 ## 2. CI green
 

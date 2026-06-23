@@ -31,8 +31,19 @@ def test_prepare_cli_environment_is_idempotent() -> None:
         " ones in a way that changes resolution"
     )
     # We do not require the PATH to differ from `before`; the goal
-    # is just that the call is safe to repeat. If the host already
     # has a healthy PATH, the post-call value can equal the
     # pre-call value.
     assert isinstance(after_first, str)
     assert isinstance(before, str)
+
+
+def test_parse_gitlab_repo_from_url() -> None:
+    assert util.parse_gitlab_repo_from_url("https://gitlab.com/owner/repo.git") == "owner/repo"
+    assert util.parse_gitlab_repo_from_url("https://gitlab.com/owner/subgroup/repo") == "owner/subgroup/repo"
+    assert util.parse_gitlab_repo_from_url("git@gitlab.com:owner/repo.git") == "owner/repo"
+    assert util.parse_gitlab_repo_from_url("git@gitlab.com:owner/repo") == "owner/repo"
+    assert util.parse_gitlab_repo_from_url("https://github.com/owner/repo.git") is None
+    
+    # Test self-hosted
+    assert util.parse_gitlab_repo_from_url("https://git.internal.corp/team/project.git", gitlab_host="git.internal.corp") == "team/project"
+    assert util.parse_gitlab_repo_from_url("git@git.internal.corp:team/sub/project.git", gitlab_host="git.internal.corp") == "team/sub/project"
