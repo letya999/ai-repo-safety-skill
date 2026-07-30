@@ -25,7 +25,7 @@ jobs:
       - name: run pytest
         run: uv run --extra dev --python ${{ matrix.python-version }} pytest -q
       - name: ruff check
-        run: uvx ruff check .
+        run: uvx --from "ruff==0.15.17" ruff check .
       - name: bandit
         run: uvx bandit -q -r src -x tests || true
 

@@ -140,7 +140,7 @@ def _checks(expected_version: str) -> list[Check]:
     return [
         Check("ci / test py3.12", ["uv", "run", "--extra", "dev", "--python", "3.12", "pytest", "-q"]),
         Check("ci / test py3.13", ["uv", "run", "--extra", "dev", "--python", "3.13", "pytest", "-q"]),
-        Check("ci+sast / ruff", ["uvx", "ruff", "check", "."]),
+        Check("ci+sast / ruff", ["uvx", "--from", "ruff==0.15.17", "ruff", "check", "."]),
         Check("sast / bandit", ["uvx", "bandit", "-q", "-r", "src", "-x", "tests,.venv,venv"]),
         Check("sast / pip-audit", ["uvx", "--with", "msgpack>=1.2.1", "pip-audit"]),
         Check("sast / opengrep placeholder local equivalent"),
