@@ -19,18 +19,54 @@ def test_init_project(tmp_path: Path) -> None:
     assert (tmp_path / ".dockerignore").exists()
     assert (tmp_path / ".env.example").exists()
     assert (tmp_path / "AGENTS.md").exists()
+    assert (tmp_path / "SECURITY.md").exists()
+    assert (tmp_path / ".repo-safety" / "config.json").exists()
+    assert (tmp_path / ".repo-safety" / "trufflehog-exclude.txt").exists()
+    assert (tmp_path / ".repo-safety" / "scripts" / "forbid_sensitive_files.py").exists()
+    assert (tmp_path / ".repo-safety" / "docs" / "agent-hooks.md").exists()
+    assert not (tmp_path / "scripts" / "security" / "forbid_sensitive_files.py").exists()
+    assert not (tmp_path / "bandit.yaml").exists()
+    assert not (tmp_path / "pyproject.ai-repo-safety.toml").exists()
+
+
+def test_init_project_appends_existing_agents_md(tmp_path: Path) -> None:
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text("# Project Rules\n\nKeep this.\n", encoding="utf-8")
+    code = main(["init", "--target", str(tmp_path), "--python", "no", "--github", "no"])
+    assert code == 0
+    text = agents.read_text(encoding="utf-8")
+    assert text.startswith("# Project Rules\n\nKeep this.")
+    assert text.count("AI REPO SAFETY RULES") == 2
+    code = main(["init", "--target", str(tmp_path), "--python", "no", "--github", "no"])
+    assert code == 0
+    assert agents.read_text(encoding="utf-8").count("AI REPO SAFETY RULES") == 2
+
+
+def test_init_project_full_writes_root_integrations(tmp_path: Path) -> None:
+    code = main(["init", "--target", str(tmp_path), "--python", "yes", "--github", "no", "--full"])
+    assert code == 0
     assert (tmp_path / "scripts" / "security" / "forbid_sensitive_files.py").exists()
     assert (tmp_path / "docs" / "agent-hooks.md").exists()
+    assert (tmp_path / "bandit.yaml").exists()
+    assert (tmp_path / "pyproject.ai-repo-safety.toml").exists()
+
+
+def test_init_project_gitlab_profile(tmp_path: Path) -> None:
+    code = main(["init", "--target", str(tmp_path), "--python", "no", "--github", "no", "--gitlab", "yes"])
+    assert code == 0
+    assert (tmp_path / ".gitlab-ci.yml").exists()
+    assert (tmp_path / ".gitlab" / "merge_request_templates" / "default.md").exists()
 
 
 def test_install_agent_hooks_writes_runtime_configs(tmp_path: Path) -> None:
     code = main(["install-agent-hooks", "--target", str(tmp_path), "--tool", "all"])
     assert code == 0
-    assert (tmp_path / "scripts" / "security" / "agent_hook_runner.py").exists()
+    assert (tmp_path / ".repo-safety" / "scripts" / "agent_hook_runner.py").exists()
     codex_hooks = tmp_path / ".codex" / "hooks.json"
     assert codex_hooks.exists()
     codex_data = json.loads(codex_hooks.read_text(encoding="utf-8"))
     assert codex_data["hooks"]["PreToolUse"][0]["matcher"] == "Bash"
+    assert ".repo-safety/scripts/agent_hook_runner.py" in codex_data["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
     assert "--profile sensitive-preflight" in codex_data["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
     assert "commandWindows" in codex_data["hooks"]["PreToolUse"][0]["hooks"][0]
     assert codex_data["hooks"]["PreToolUse"][1]["matcher"] == "^mcp__github__.*$"
@@ -41,6 +77,7 @@ def test_install_agent_hooks_writes_runtime_configs(tmp_path: Path) -> None:
     assert claude_settings.exists()
     claude_data = json.loads(claude_settings.read_text(encoding="utf-8"))
     claude_args = claude_data["hooks"]["PreToolUse"][0]["hooks"][0]["args"]
+    assert ".repo-safety/scripts/agent_hook_runner.py" in claude_args[0]
     assert claude_args[-2:] == ["--profile", "sensitive-preflight"]
     claude_mcp = claude_data["hooks"]["PreToolUse"][1]
     assert claude_mcp["matcher"] == "^mcp__github__.*$"
@@ -83,7 +120,7 @@ def test_setup_plan_does_not_mutate(tmp_path: Path) -> None:
     )
     assert not (tmp_path / "AGENTS.md").exists()
     assert not (tmp_path / ".env.example").exists()
-    assert not (tmp_path / "scripts" / "security" / "forbid_sensitive_files.py").exists()
+    assert not (tmp_path / ".repo-safety" / "scripts" / "forbid_sensitive_files.py").exists()
     assert not (tmp_path / ".git" / "hooks" / "pre-push").exists(), (
         "plan-only setup must not install git hooks"
     )
@@ -120,5 +157,6 @@ def test_setup_apply_with_yes_writes_assets(tmp_path: Path) -> None:
     assert code == 0
     assert (tmp_path / ".gitignore").exists()
     assert (tmp_path / "AGENTS.md").exists()
+    assert (tmp_path / ".repo-safety" / "scripts" / "forbid_sensitive_files.py").exists()
     assert (tmp_path / ".git" / "hooks" / "pre-push").exists()
 

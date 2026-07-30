@@ -14,6 +14,8 @@ class ToolSpec:
     purpose: str
     install_hint: str
     version_args: tuple[str, ...] = ("--version",)
+    category: str = "core"
+    privacy_note: str = ""
 
 
 TOOL_SPECS: list[ToolSpec] = [
@@ -32,6 +34,16 @@ TOOL_SPECS: list[ToolSpec] = [
     ToolSpec("OSV-Scanner", "osv-scanner", False, "open-source vulnerability scanner", "Install from OSV-Scanner official releases or package manager."),
     ToolSpec("GitHub CLI", "gh", False, "GitHub read guard backend", "Install GitHub CLI from official docs or package manager."),
     ToolSpec("git-filter-repo", "git-filter-repo", False, "clean leaked secrets from Git history", "Install with `uv tool install git-filter-repo` or OS package manager."),
+    ToolSpec("GitLab CLI", "glab", False, "GitLab read guard backend", "Install GitLab CLI from official docs or package manager.", category="gitlab"),
+    ToolSpec("gosec", "gosec", False, "Go static security analyzer", "Install from securego/gosec official releases or `go install github.com/securego/gosec/v2/cmd/gosec@latest` after checking the current release.", category="go"),
+    ToolSpec("govulncheck", "govulncheck", False, "Go vulnerability analyzer", "Install from Go official tooling with `go install golang.org/x/vuln/cmd/govulncheck@latest` after checking Go docs.", category="go"),
+    ToolSpec("cargo-audit", "cargo-audit", False, "Rust dependency vulnerability scanner", "Install from RustSec/cargo-audit official releases or `cargo install cargo-audit`.", category="rust"),
+    ToolSpec("cargo-deny", "cargo-deny", False, "Rust dependency/license/advisory policy gate", "Install from EmbarkStudios/cargo-deny official releases or `cargo install cargo-deny`.", category="rust"),
+    ToolSpec("ESLint", "eslint", False, "JavaScript/TypeScript lint and security-adjacent rules", "Use the project's package manager and official ESLint docs.", category="typescript"),
+    ToolSpec("npm", "npm", False, "JavaScript package audit backend", "Install Node.js/npm from official Node.js distributions.", category="typescript"),
+    ToolSpec("Snyk Agent Scan", "snyk-agent-scan", False, "AI agent, MCP, and skill scanner", "Install from Snyk Agent Scan official releases/docs.", category="agent-skill", privacy_note="may send agent metadata to Snyk cloud; require explicit opt-in before running"),
+    ToolSpec("Cisco Skill Scanner", "skill-scanner", False, "AI skill prompt-injection and exfiltration scanner", "Install from cisco-ai-defense/skill-scanner official repository.", category="agent-skill"),
+    ToolSpec("NVIDIA SkillSpector", "skillspector", False, "AI agent skill scanner with structured reports", "Install from NVIDIA/SkillSpector official repository.", category="agent-skill"),
 ]
 
 PYTHON_TOOL_COMMANDS = {
@@ -55,6 +67,8 @@ def check_tool(spec: ToolSpec) -> tuple[bool, str]:
     if not path:
         return False, "missing"
     code, out, err = run_cmd([spec.command, *spec.version_args], timeout=20)
+    if code != 0:
+        return False, (err or out or f"exit:{code}").strip()
     version = (out or err or path).strip().splitlines()[0] if (out or err) else path
     if len(version) > 100:
         version = version[:100] + "..."
@@ -80,7 +94,10 @@ def doctor(*, agent_plan: bool = False) -> int:
     for spec in TOOL_SPECS:
         ok, details = check_tool(spec)
         status = "OK" if ok else ("FAIL" if spec.required else "MISSING")
-        rows.append((spec.name, status, details if ok else spec.install_hint))
+        display = details if ok else spec.install_hint
+        if spec.privacy_note:
+            display = f"{display}; {spec.privacy_note}"
+        rows.append((spec.name, status, display))
         if not ok and spec.required:
             missing_required.append(spec)
         elif not ok:

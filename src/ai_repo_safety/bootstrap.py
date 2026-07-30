@@ -7,10 +7,12 @@ from .util import (
     append_marked_block,
     asset_text,
     detect_github_project,
+    detect_gitlab_project,
     detect_python_project,
     dump_json,
     git_origin,
     parse_github_repo_from_url,
+    parse_gitlab_repo_from_url,
     project_root,
     write_text,
 )
@@ -40,12 +42,73 @@ DEFAULT_POLICY = {
     ],
 }
 
+DEFAULT_TRUFFLEHOG_EXCLUDES = (
+    r"(^|[\\/])(\.venv|venv|node_modules|\.opencode[\\/]node_modules|\.agents[\\/]node_modules)([\\/]|$)"
+    "\n"
+)
+
 
 def copy_asset(relative_asset: str, target: Path, *, overwrite: bool = False) -> bool:
     return write_text(target, asset_text(relative_asset), overwrite=overwrite)
 
 
-def apply_universal(root: Path, *, overwrite: bool = False) -> list[str]:
+def _write_policy(root: Path, *, overwrite: bool = False) -> list[str]:
+    actions: list[str] = []
+    policy_path = root / ".repo-safety" / "config.json"
+    policy = copy.deepcopy(DEFAULT_POLICY)
+    current_github_repo = parse_github_repo_from_url(git_origin(root))
+    if current_github_repo:
+        policy["github_read_guard"]["allowed_repositories"] = [current_github_repo]
+    current_gitlab_repo = parse_gitlab_repo_from_url(git_origin(root))
+    if current_gitlab_repo:
+        policy["gitlab_read_guard"] = {
+            "mode": "strict",
+            "gitlab_host": "gitlab.com",
+            "allowed_repositories": [current_gitlab_repo],
+            "allowed_resources": ["issues", "merge_requests", "branches", "commits"],
+            "resource_aliases": {"mrs": "merge_requests", "prs": "merge_requests"},
+            "require_explicit_reason": True,
+            "max_items": 30,
+            "max_body_chars": 20000,
+            "redact_secrets": True,
+            "block_prompt_injection_patterns": True,
+            "deny_cross_repo_reads": True,
+        }
+    if not policy_path.exists() or overwrite:
+        dump_json(policy_path, policy)
+        actions.append("created .repo-safety/config.json")
+    else:
+        actions.append("kept existing .repo-safety/config.json")
+    return actions
+
+
+def _install_namespaced_assets(root: Path, *, overwrite: bool = False) -> list[str]:
+    actions: list[str] = []
+    for asset, dest in [
+        ("docs/agent-hooks.md", ".repo-safety/docs/agent-hooks.md"),
+        ("docs/mcp-safety.md", ".repo-safety/docs/mcp-safety.md"),
+        ("docs/incident-cleanup.md", ".repo-safety/docs/incident-cleanup.md"),
+        ("docs/git-history-cleanup.md", ".repo-safety/docs/git-history-cleanup.md"),
+        ("docs/git-integrity.md", ".repo-safety/docs/git-integrity.md"),
+        ("docs/mitigation-map.md", ".repo-safety/docs/mitigation-map.md"),
+        ("docs/threat-model-template.md", ".repo-safety/docs/threat-model.md"),
+        ("docs/opencode.md", ".repo-safety/docs/opencode.md"),
+        ("scripts/forbid_sensitive_files.py", ".repo-safety/scripts/forbid_sensitive_files.py"),
+        ("scripts/prepush.py", ".repo-safety/scripts/prepush.py"),
+        ("scripts/scan_mcp_config.py", ".repo-safety/scripts/scan_mcp_config.py"),
+        ("templates/universal/pre-commit-config.yaml", ".repo-safety/templates/pre-commit-config.yaml"),
+        ("templates/python/bandit.yaml", ".repo-safety/templates/bandit.yaml"),
+        ("templates/python/pyproject.ai-repo-safety.toml", ".repo-safety/templates/pyproject.ai-repo-safety.toml"),
+        ("templates/github/renovate.json", ".repo-safety/templates/renovate.json"),
+    ]:
+        if copy_asset(asset, root / dest, overwrite=overwrite):
+            actions.append(f"created {dest}")
+        else:
+            actions.append(f"kept existing {dest}")
+    return actions
+
+
+def apply_universal(root: Path, *, overwrite: bool = False, full: bool = False) -> list[str]:
     actions: list[str] = []
 
     block = asset_text("templates/universal/gitignore.block")
@@ -57,7 +120,7 @@ def apply_universal(root: Path, *, overwrite: bool = False) -> list[str]:
     else:
         actions.append("kept existing .env.example")
 
-    if copy_asset("templates/universal/AGENTS.md", root / "AGENTS.md", overwrite=overwrite):
+    if not (root / "AGENTS.md").exists() and copy_asset("templates/universal/AGENTS.md", root / "AGENTS.md", overwrite=overwrite):
         actions.append("created AGENTS.md")
     else:
         status = append_marked_block(root / "AGENTS.md", "AI REPO SAFETY RULES", asset_text("templates/universal/AGENTS.append.md"))
@@ -65,46 +128,45 @@ def apply_universal(root: Path, *, overwrite: bool = False) -> list[str]:
 
     for asset, dest in [
         ("templates/universal/SECURITY.md", "SECURITY.md"),
-        ("templates/universal/pre-commit-config.yaml", ".pre-commit-config.yaml"),
         ("templates/universal/dockerignore", ".dockerignore"),
-        ("docs/agent-hooks.md", "docs/agent-hooks.md"),
-        ("docs/mcp-safety.md", "docs/mcp-safety.md"),
-        ("docs/incident-cleanup.md", "docs/incident-cleanup.md"),
-        ("docs/git-history-cleanup.md", "docs/git-history-cleanup.md"),
-        ("docs/git-integrity.md", "docs/git-integrity.md"),
-        ("docs/mitigation-map.md", "docs/mitigation-map.md"),
-        ("docs/threat-model-template.md", "docs/threat-model.md"),
-        ("docs/opencode.md", "docs/opencode.md"),
     ]:
         path = root / dest
-        if path.exists() and not overwrite and dest == ".pre-commit-config.yaml":
-            alt = root / ".pre-commit-config.ai-repo-safety.yaml"
-            copy_asset(asset, alt, overwrite=True)
-            actions.append("existing .pre-commit-config.yaml found; wrote .pre-commit-config.ai-repo-safety.yaml")
-        elif copy_asset(asset, path, overwrite=overwrite):
+        if copy_asset(asset, path, overwrite=overwrite):
             actions.append(f"created {dest}")
         else:
             actions.append(f"kept existing {dest}")
 
-    scripts = [
-        "forbid_sensitive_files.py",
-        "prepush.py",
-        "scan_mcp_config.py",
-    ]
-    for name in scripts:
-        copy_asset(f"scripts/{name}", root / "scripts" / "security" / name, overwrite=True)
-        actions.append(f"installed scripts/security/{name}")
-
-    policy_path = root / ".repo-safety.json"
-    policy = copy.deepcopy(DEFAULT_POLICY)
-    current_repo = parse_github_repo_from_url(git_origin(root))
-    if current_repo:
-        policy["github_read_guard"]["allowed_repositories"] = [current_repo]
-    if not policy_path.exists() or overwrite:
-        dump_json(policy_path, policy)
-        actions.append("created .repo-safety.json")
+    actions.extend(_install_namespaced_assets(root, overwrite=overwrite))
+    if write_text(root / ".repo-safety" / "trufflehog-exclude.txt", DEFAULT_TRUFFLEHOG_EXCLUDES, overwrite=overwrite):
+        actions.append("created .repo-safety/trufflehog-exclude.txt")
     else:
-        actions.append("kept existing .repo-safety.json")
+        actions.append("kept existing .repo-safety/trufflehog-exclude.txt")
+    actions.extend(_write_policy(root, overwrite=overwrite))
+
+    if full:
+        for asset, dest in [
+            ("templates/universal/pre-commit-config.yaml", ".pre-commit-config.yaml"),
+            ("docs/agent-hooks.md", "docs/agent-hooks.md"),
+            ("docs/mcp-safety.md", "docs/mcp-safety.md"),
+            ("docs/incident-cleanup.md", "docs/incident-cleanup.md"),
+            ("docs/git-history-cleanup.md", "docs/git-history-cleanup.md"),
+            ("docs/git-integrity.md", "docs/git-integrity.md"),
+            ("docs/mitigation-map.md", "docs/mitigation-map.md"),
+            ("docs/threat-model-template.md", "docs/threat-model.md"),
+            ("docs/opencode.md", "docs/opencode.md"),
+            ("scripts/forbid_sensitive_files.py", "scripts/security/forbid_sensitive_files.py"),
+            ("scripts/prepush.py", "scripts/security/prepush.py"),
+            ("scripts/scan_mcp_config.py", "scripts/security/scan_mcp_config.py"),
+        ]:
+            path = root / dest
+            if path.exists() and not overwrite and dest == ".pre-commit-config.yaml":
+                alt = root / ".pre-commit-config.ai-repo-safety.yaml"
+                copy_asset(asset, alt, overwrite=True)
+                actions.append("existing .pre-commit-config.yaml found; wrote .pre-commit-config.ai-repo-safety.yaml")
+            elif copy_asset(asset, path, overwrite=overwrite):
+                actions.append(f"created {dest}")
+            else:
+                actions.append(f"kept existing {dest}")
 
     return actions
 
@@ -151,6 +213,20 @@ def apply_github(root: Path, *, overwrite: bool = False) -> list[str]:
     return actions
 
 
+def apply_gitlab(root: Path, *, overwrite: bool = False) -> list[str]:
+    actions: list[str] = []
+    for asset, dest in [
+        ("templates/gitlab/.gitlab-ci.yml", ".gitlab-ci.yml"),
+        ("templates/gitlab/merge_request_templates/default.md", ".gitlab/merge_request_templates/default.md"),
+        ("templates/gitlab/issue_templates/security.md", ".gitlab/issue_templates/security.md"),
+    ]:
+        if copy_asset(asset, root / dest, overwrite=overwrite):
+            actions.append(f"created {dest}")
+        else:
+            actions.append(f"kept existing {dest}")
+    return actions
+
+
 def apply_rules(root: Path, *, overwrite: bool = False) -> list[str]:
     actions: list[str] = []
     for name in [
@@ -166,18 +242,29 @@ def apply_rules(root: Path, *, overwrite: bool = False) -> list[str]:
     return actions
 
 
-def init_project(target: str | Path, *, python: str = "auto", github: str = "auto", overwrite: bool = False) -> int:
+def init_project(
+    target: str | Path,
+    *,
+    python: str = "auto",
+    github: str = "auto",
+    gitlab: str = "auto",
+    overwrite: bool = False,
+    full: bool = False,
+) -> int:
     root = project_root(target)
     root.mkdir(parents=True, exist_ok=True)
     actions: list[str] = []
-    actions.extend(apply_universal(root, overwrite=overwrite))
+    actions.extend(apply_universal(root, overwrite=overwrite, full=full))
     actions.extend(apply_rules(root, overwrite=overwrite))
 
     python_enabled = detect_python_project(root) if python == "auto" else python == "yes"
     github_enabled = detect_github_project(root) if github == "auto" else github == "yes"
+    gitlab_enabled = detect_gitlab_project(root) if gitlab == "auto" else gitlab == "yes"
 
-    if python_enabled:
+    if python_enabled and full:
         actions.extend(apply_python(root, overwrite=overwrite))
+    elif python_enabled:
+        actions.append("python profile detected; root files skipped (use --full to apply)")
     else:
         actions.append("python profile skipped")
 
@@ -185,6 +272,11 @@ def init_project(target: str | Path, *, python: str = "auto", github: str = "aut
         actions.extend(apply_github(root, overwrite=overwrite))
     else:
         actions.append("github profile skipped")
+
+    if gitlab_enabled:
+        actions.extend(apply_gitlab(root, overwrite=overwrite))
+    else:
+        actions.append("gitlab profile skipped")
 
     print("AI Repo Safety initialized:")
     for action in actions:
@@ -297,7 +389,9 @@ def setup_project(
     *,
     python: str = "auto",
     github: str = "auto",
+    gitlab: str = "auto",
     overwrite: bool = False,
+    full: bool = False,
     mode: str = "plan",
     install_tools: bool = False,
     configure_github: bool = False,
@@ -357,7 +451,8 @@ def setup_project(
         # `setup --apply --yes` for the rest.
         print(
             "\n[Step 2/6] Would initialize repository safety assets: "
-            "SKIPPED (plan mode; run `ai-repo-safety init --target .` to apply)"
+            "SKIPPED (plan mode; run `ai-repo-safety init --target .` to apply minimal assets, "
+            "or add `--full` for the full bootstrap)"
         )
         print("\n[Step 3/6] Would install missing tools: SKIPPED (plan mode)")
         print("\n[Step 4/6] Would install git hooks: SKIPPED (plan mode)")
@@ -370,7 +465,7 @@ def setup_project(
         return 0
 
     print("\n[Step 2/6] Initializing repository safety assets...")
-    init_project(root, python=python, github=github, overwrite=overwrite)
+    init_project(root, python=python, github=github, gitlab=gitlab, overwrite=overwrite, full=full)
 
     if not yes:
         print(
@@ -396,7 +491,7 @@ def setup_project(
         print("\n[Step 4/6] Skipped (not requested). Use --run-hooks to opt in.")
 
     print("\n[Step 5/6] Running full security scans...")
-    scan_result = scan(root)
+    scan_result = scan(root, offline=True)
 
     if configure_github:
         print("\n[Step 6/6] Configuring GitHub repository security...")

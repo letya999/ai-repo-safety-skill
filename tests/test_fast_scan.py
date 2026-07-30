@@ -24,7 +24,7 @@ def test_scan_allows_env_example(tmp_path: Path) -> None:
 
 
 def test_scan_flags_real_env(tmp_path: Path) -> None:
-    _write(tmp_path / ".env", "API_KEY=ghp_abcdefghijklmnopqrstuvwxyz0123456789\n")
+    _write(tmp_path / ".env", "API_KEY=ghp_abcdefghijklmnopqrstuvwxyz0123456789\n")  # pragma: allowlist secret
     findings = scan_directory(tmp_path)
     forbidden = [f for f in findings if f.get("type") == "forbidden_file"]
     assert any(f.get("file") == ".env" for f in forbidden), (
@@ -35,7 +35,7 @@ def test_scan_flags_real_env(tmp_path: Path) -> None:
 def test_scan_classifies_template_private_key_placeholder(tmp_path: Path) -> None:
     _write(
         tmp_path / "src/app/templates/example.py",
-        "-----BEGIN PRIVATE KEY-----\nplaceholder\n-----END PRIVATE KEY-----\n",
+        "-----BEGIN PRIVATE KEY-----\nplaceholder\n-----END PRIVATE KEY-----\n",  # pragma: allowlist secret
     )
     findings = scan_directory(tmp_path)
     secret_findings = [f for f in findings if f.get("type") in {"secret_content", "secret_placeholder"}]
@@ -50,7 +50,7 @@ def test_scan_classifies_template_private_key_placeholder(tmp_path: Path) -> Non
 def test_scan_does_not_echo_secret_values(tmp_path: Path) -> None:
     _write(
         tmp_path / "leak.txt",
-        "ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD\n",
+        "ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD\n",  # pragma: allowlist secret
     )
     findings = scan_directory(tmp_path)
     secret = [f for f in findings if "Personal Access Token" in f.get("message", "")]

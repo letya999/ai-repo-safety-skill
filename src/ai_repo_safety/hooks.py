@@ -19,6 +19,8 @@ elif command -v uv >/dev/null 2>&1 && [ -f pyproject.toml ]; then
   uv run ai-repo-safety prepush --target .
 elif command -v uvx >/dev/null 2>&1; then
   uvx ai-repo-safety prepush --target .
+elif [ -f .repo-safety/scripts/prepush.py ]; then
+  python .repo-safety/scripts/prepush.py
 elif [ -f scripts/security/prepush.py ]; then
   python scripts/security/prepush.py
 else
@@ -43,6 +45,10 @@ if %ERRORLEVEL%==0 if exist pyproject.toml (
 where uvx >nul 2>nul
 if %ERRORLEVEL%==0 (
   uvx ai-repo-safety prepush --target .
+  exit /b %ERRORLEVEL%
+)
+if exist .repo-safety\\scripts\\prepush.py (
+  python .repo-safety\\scripts\\prepush.py
   exit /b %ERRORLEVEL%
 )
 if exist scripts\\security\\prepush.py (

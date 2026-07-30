@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .repo-safety/scripts/agent_hook_runner.py --profile sensitive-preflight",
+            "commandWindows": "py -3 .repo-safety\\scripts\\agent_hook_runner.py --profile sensitive-preflight",
+            "statusMessage": "Running repo safety preflight"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -19,6 +19,8 @@ The project is designed for **Python 3.12**, **uv**, and **uvx**, and works on *
 - Gitleaks / TruffleHog / detect-secrets integration
 - Opengrep-first SAST profile, without Semgrep as a default dependency
 - Python hardening via Bandit, Ruff, pip-audit, pytest, pydantic-settings examples
+- Go, Rust, JavaScript/TypeScript, and Angular-aware scanner inventory
+- optional AI agent skill scanners: Snyk Agent Scan, Cisco Skill Scanner, NVIDIA SkillSpector
 - GitHub public repo hardening workflows
 - GitLab CI pipeline templates and SaaS/Self-Hosted config support
 - GitHub and GitLab read guard for commits, PRs, branches, issues, and merge requests
@@ -72,7 +74,7 @@ Or run without installing:
 
 ```bash
 uvx ai-repo-safety doctor
-uvx ai-repo-safety init --target . --python auto --github auto
+uvx ai-repo-safety init --target . --python auto --github auto --gitlab auto
 uvx ai-repo-safety scan --target .
 ```
 
@@ -109,9 +111,11 @@ ai-repo-safety doctor
 # Plan-only bootstrap. By default does not install tools, hooks,
 # or call the GitHub API. Use --apply --yes and the matching
 # opt-in flag to perform a specific mutation.
-ai-repo-safety init --target . --python auto --github auto
+ai-repo-safety init --target . --python auto --github auto --gitlab auto
+ai-repo-safety init --target . --full  # explicit full root-level bootstrap
 ai-repo-safety setup --target .            # plan only
 ai-repo-safety setup --target . --apply --run-hooks --yes
+ai-repo-safety setup --target . --apply --full --run-hooks --yes
 
 # Local hook install. Refuses to overwrite an unmanaged existing
 # hook unless --overwrite (or --chain to append) is passed.
@@ -128,6 +132,8 @@ ai-repo-safety install-agent-hooks --target . --tool all
 # Scans.
 ai-repo-safety scan --target .
 ai-repo-safety scan --target . --strict
+ai-repo-safety scan --target . --agent-skills
+ai-repo-safety scan --target . --agent-skills --allow-cloud-agent-scan
 ai-repo-safety prepush --target .
 
 # GitHub read guard. Always pass an explicit --reason.
@@ -182,6 +188,12 @@ Cursor uses `.cursorrules` to guide its Chat and Composer features:
 
 ## Tool philosophy
 
+`init` uses a minimal, append-only footprint by default. It may create or update
+`AGENTS.md`, `.gitignore`, `.dockerignore`, `SECURITY.md`, `.github/`, `.gitlab/`,
+and namespaced files under `.repo-safety/`. Project-specific examples, docs,
+helper scripts, and scanner templates stay under `.repo-safety/` unless you pass
+`--full`, which applies the explicit root-level integration profile.
+
 Default tools are free / OSS / community:
 
 - `pre-commit`
@@ -197,8 +209,15 @@ Default tools are free / OSS / community:
 - `Renovate`
 - `OpenSSF Scorecard`
 - optional `CodeQL` for public/open-source GitHub repos
+- Go: `gosec`, `govulncheck`
+- Rust: `cargo-audit`, `cargo-deny`
+- JavaScript/TypeScript/Angular: project ESLint plus package-manager audit and OSV Scanner
+- AI skills: `skillspector`, `skill-scanner`, and opt-in `snyk-agent-scan`
 
 Semgrep is **not** the default. The SAST profile is Opengrep-first. Existing Semgrep-compatible rules can be adapted by the agent when compatible.
+
+`snyk-agent-scan` is cloud-backed for some metadata analysis, so the CLI only
+runs it when `--allow-cloud-agent-scan` is explicitly passed.
 
 ## Tool installation policy
 
@@ -219,7 +238,8 @@ Agents often ingest too much GitHub context: commits, PRs, branches, issues, com
 ai-repo-safety github-guard read --repo owner/repo --resource issues --reason "triage current issues"
 ```
 
-It enforces policy from `.repo-safety.json`:
+It enforces policy from `.repo-safety/config.json` and falls back to the legacy
+`.repo-safety.json` when present:
 
 - only allowed repositories by default
 - explicit reason required

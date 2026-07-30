@@ -20,27 +20,35 @@ rm -rf dist .tmp-smoke
 uv build
 
 python -m venv .tmp-smoke/venv
+if [ -x .tmp-smoke/venv/bin/python ]; then
+    VENV_BIN=.tmp-smoke/venv/bin
+else
+    VENV_BIN=.tmp-smoke/venv/Scripts
+fi
 # shellcheck disable=SC1091
-.tmp-smoke/venv/bin/pip install --quiet --no-index --find-links dist ai-repo-safety
+"$VENV_BIN/pip" install --quiet --no-index --find-links dist ai-repo-safety
 
-.tmp-smoke/venv/bin/ai-repo-safety --version
-.tmp-smoke/venv/bin/ai-repo-safety init --target .tmp-smoke/target --python yes --github no
+"$VENV_BIN/ai-repo-safety" --version
+"$VENV_BIN/ai-repo-safety" init --target .tmp-smoke/target --python yes --github no
 
 test -f .tmp-smoke/target/AGENTS.md
 test -f .tmp-smoke/target/SECURITY.md
-test -f .tmp-smoke/target/bandit.yaml
-test -f .tmp-smoke/target/pyproject.ai-repo-safety.toml
+test ! -f .tmp-smoke/target/bandit.yaml
+test ! -f .tmp-smoke/target/pyproject.ai-repo-safety.toml
+test -f .tmp-smoke/target/.repo-safety/config.json
+test -f .tmp-smoke/target/.repo-safety/templates/bandit.yaml
+test -f .tmp-smoke/target/.repo-safety/templates/pyproject.ai-repo-safety.toml
 test -f .tmp-smoke/target/.repo-safety/opengrep/python-dangerous-code.yml
 test -f .tmp-smoke/target/.repo-safety/opengrep/python-fastapi-security.yml
 test -f .tmp-smoke/target/.repo-safety/opengrep/secrets-adjacent.yml
-test -f .tmp-smoke/target/scripts/security/forbid_sensitive_files.py
-test -f .tmp-smoke/target/scripts/security/scan_mcp_config.py
-test -f .tmp-smoke/target/docs/mcp-safety.md
-test -f .tmp-smoke/target/docs/threat-model.md
+test -f .tmp-smoke/target/.repo-safety/scripts/forbid_sensitive_files.py
+test -f .tmp-smoke/target/.repo-safety/scripts/scan_mcp_config.py
+test -f .tmp-smoke/target/.repo-safety/docs/mcp-safety.md
+test -f .tmp-smoke/target/.repo-safety/docs/threat-model.md
 
 # Re-run init with --plan-style defaults and confirm setup is
 # strictly read-only: no git hooks are installed.
-.tmp-smoke/venv/bin/ai-repo-safety setup --target .tmp-smoke/target --python yes --github no
+"$VENV_BIN/ai-repo-safety" setup --target .tmp-smoke/target --python yes --github no
 
 # Plan-only setup must not have installed a pre-push hook on the
 # target tree (no .git/hooks/pre-push file there).

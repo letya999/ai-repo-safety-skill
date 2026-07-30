@@ -19,7 +19,10 @@ jobs:
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
     with:
       scan-args: |-
-        --recursive
+        scan
+        source
+        -r
+        --allow-no-lockfiles
         ./
 
   python-deps:
@@ -31,5 +34,5 @@ jobs:
           python-version: '3.12'
       - name: pip-audit
         run: |
-          python -m pip install --upgrade pip pip-audit
+          python -m pip install --upgrade pip pip-audit "msgpack>=1.2.1"
           pip-audit

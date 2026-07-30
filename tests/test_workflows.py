@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -106,11 +107,14 @@ def test_sbom_command_is_wired() -> None:
 
 
 def test_sarif_scan_emits_valid_top_level_shape() -> None:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path("src").resolve())
     proc = subprocess.run(  # nosec
         [sys.executable, "-m", "ai_repo_safety", "scan", "--target", ".", "--sarif"],
         capture_output=True,
         text=True,
         encoding="utf-8",
+        env=env,
     )
     # The SARIF exit code may be 0 or 1 depending on the local
     # environment; we only care that the JSON shape is correct.

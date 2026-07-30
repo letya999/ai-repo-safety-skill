@@ -5,6 +5,7 @@ import json
 import re
 import subprocess  # nosec
 import sys
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -40,8 +41,16 @@ def run_cmd(args: list[str], cwd: Path, timeout: int = 300) -> tuple[int, str, s
     except FileNotFoundError as exc:
         return 127, "", str(exc)
     except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout.decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-        stderr = exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+        stdout = (
+            exc.stdout.decode("utf-8", errors="replace")
+            if isinstance(exc.stdout, bytes)
+            else (exc.stdout or "")
+        )
+        stderr = (
+            exc.stderr.decode("utf-8", errors="replace")
+            if isinstance(exc.stderr, bytes)
+            else (exc.stderr or "")
+        )
         return 124, stdout, stderr or f"Timeout after {timeout}s"
 
 
@@ -60,7 +69,9 @@ def resolve_trufflehog_since_commit(root: Path) -> str | None:
         code, out, _ = run_cmd(cmd, cwd=root, timeout=20)
         if code == 0 and out.strip():
             return out.strip()
-    code, out, _ = run_cmd(["git", "rev-list", "--max-count=20", "HEAD"], cwd=root, timeout=20)
+    code, out, _ = run_cmd(
+        ["git", "rev-list", "--max-count=20", "HEAD"], cwd=root, timeout=20
+    )
     if code == 0:
         commits = [line.strip() for line in out.splitlines() if line.strip()]
         if len(commits) >= 2:
@@ -100,7 +111,9 @@ def is_sensitive_command(command: str) -> bool:
 
 
 def load_repo_policy(root: Path) -> dict:
-    path = root / ".repo-safety.json"
+    path = root / ".repo-safety" / "config.json"
+    if not path.exists():
+        path = root / ".repo-safety.json"
     if not path.exists():
         return {}
     try:
@@ -118,7 +131,9 @@ def _mcp_policy(root: Path) -> dict:
 
 
 def is_repo_mcp_tool(tool_name: str) -> bool:
-    return tool_name.startswith("mcp__github__") or tool_name.startswith("mcp__gitlab__")
+    return tool_name.startswith("mcp__github__") or tool_name.startswith(
+        "mcp__gitlab__"
+    )
 
 
 def is_write_capable_mcp_tool(tool_name: str) -> bool:
@@ -179,7 +194,9 @@ def mcp_tool_allowed(root: Path, tool_name: str) -> bool:
     allowlist = _mcp_policy(root).get("allow_write_tools", [])
     if not isinstance(allowlist, list):
         return False
-    return any(isinstance(item, str) and re.fullmatch(item, tool_name) for item in allowlist)
+    return any(
+        isinstance(item, str) and re.fullmatch(item, tool_name) for item in allowlist
+    )
 
 
 def mcp_audit_log_path(root: Path) -> Path:
@@ -211,6 +228,14 @@ def bandit_command(root: Path) -> list[str]:
 
 
 def trufflehog_command(root: Path) -> list[str]:
+    exclude_file = root / ".repo-safety" / "trufflehog-exclude.txt"
+    if exclude_file.exists():
+        exclude_args = ["--exclude-paths", str(exclude_file)]
+    else:
+        fh = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
+        with fh:
+            fh.write(r"(^|[\\/])(\.venv|venv|node_modules|\.opencode[\\/]node_modules|\.agents[\\/]node_modules)([\\/]|$)" + "\n")
+        exclude_args = ["--exclude-paths", fh.name]
     if git_has_commits(root):
         since = resolve_trufflehog_since_commit(root)
         if since:
@@ -221,10 +246,19 @@ def trufflehog_command(root: Path) -> list[str]:
                 "--no-update",
                 "--since-commit",
                 since,
+                *exclude_args,
                 "--results=verified,unknown",
                 "--fail",
             ]
-    return ["trufflehog", "filesystem", ".", "--no-update", "--results=verified,unknown", "--fail"]
+    return [
+        "trufflehog",
+        "filesystem",
+        ".",
+        "--no-update",
+        *exclude_args,
+        "--results=verified,unknown",
+        "--fail",
+    ]
 
 
 def gitleaks_command() -> list[str]:
@@ -240,13 +274,19 @@ def opengrep_command(root: Path) -> list[str] | None:
         "--config",
         str(rules_dir),
         "--exclude",
+        ".repo-safety/opengrep/",
+        "--exclude",
         "src/ai_repo_safety/assets/rules/opengrep/",
         ".",
     ]
 
 
 def looks_like_python_repo(root: Path) -> bool:
-    return (root / "pyproject.toml").exists() or (root / "requirements.txt").exists() or (root / "src").exists()
+    return (
+        (root / "pyproject.toml").exists()
+        or (root / "requirements.txt").exists()
+        or (root / "src").exists()
+    )
 
 
 def run_check(check: str, root: Path) -> tuple[int, str]:
@@ -254,6 +294,12 @@ def run_check(check: str, root: Path) -> tuple[int, str]:
         cmd = bandit_command(root)
     elif check == "trufflehog":
         cmd = trufflehog_command(root)
+    elif check == "gitleaks":
+        cmd = gitleaks_command()
+    elif check == "opengrep":
+        cmd = opengrep_command(root)
+        if cmd is None:
+            return 0, ""
     else:
         return 2, f"unsupported check: {check}"
 
@@ -261,7 +307,10 @@ def run_check(check: str, root: Path) -> tuple[int, str]:
     if code == 0:
         return 0, ""
     if code == 127:
-        return 2, f"[repo-safety] blocking sensitive command: required scanner `{check}` is missing"
+        return (
+            2,
+            f"[repo-safety] blocking sensitive command: required scanner `{check}` is missing",
+        )
     details = (err or out).strip()
     prefix = f"[repo-safety] blocking sensitive command: {check} failed"
     return 2, f"{prefix}\n{details}" if details else prefix
@@ -297,7 +346,10 @@ def run_profile(profile: str, root: Path) -> tuple[int, str]:
         if code == 0:
             continue
         if code == 127:
-            return 2, f"[repo-safety] blocking sensitive command: required scanner `{check}` is missing"
+            return (
+                2,
+                f"[repo-safety] blocking sensitive command: required scanner `{check}` is missing",
+            )
         details = (err or out).strip()
         prefix = f"[repo-safety] blocking sensitive command: {check} failed"
         return 2, f"{prefix}\n{details}" if details else prefix
@@ -322,16 +374,22 @@ def run_mcp_audit_profile(root: Path, payload: dict) -> tuple[int, str]:
     if decision == "deny":
         return 2, (
             "[repo-safety] blocking write-capable MCP tool call: "
-            f"{tool_name}. Add an explicit allowlist entry under `.repo-safety.json` "
+            f"{tool_name}. Add an explicit allowlist entry under `.repo-safety/config.json` "
             "mcp_policy.allow_write_tools if this operation is intended."
         )
     return 0, ""
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Minimal agent hook preflight for sensitive commands.")
-    parser.add_argument("--check", choices=["bandit", "trufflehog", "gitleaks", "opengrep"])
-    parser.add_argument("--profile", choices=["sensitive-preflight", "mcp-invocation-audit"])
+    parser = argparse.ArgumentParser(
+        description="Minimal agent hook preflight for sensitive commands."
+    )
+    parser.add_argument(
+        "--check", choices=["bandit", "trufflehog", "gitleaks", "opengrep"]
+    )
+    parser.add_argument(
+        "--profile", choices=["sensitive-preflight", "mcp-invocation-audit"]
+    )
     parser.add_argument("--command")
     args = parser.parse_args(argv)
     if bool(args.check) == bool(args.profile):

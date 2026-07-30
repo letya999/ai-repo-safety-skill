@@ -21,6 +21,7 @@ rm -rf dist && uv build --no-sources
 uvx twine check dist/*
 python scripts/check-package-artifacts.py
 bash scripts/smoke-wheel.sh
+python scripts/local-github-checks.py --version X.Y.Z
 ai-repo-safety verify-release --version X.Y.Z
 ```
 

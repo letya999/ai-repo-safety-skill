@@ -15,7 +15,7 @@ from ai_repo_safety.github_guard import (
 
 
 def test_redact_strips_github_pat() -> None:
-    text = "token=ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD"
+    text = "token=ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD"  # pragma: allowlist secret
     cleaned, count = redact(text)
     assert "ghp_" not in cleaned
     assert "[REDACTED_SECRET]" in cleaned
@@ -24,7 +24,7 @@ def test_redact_strips_github_pat() -> None:
 
 def test_redact_strips_pem_block() -> None:
     text = (
-        "-----BEGIN RSA PRIVATE KEY-----\n"
+        "-----BEGIN RSA PRIVATE KEY-----\n"  # pragma: allowlist secret
         "abc\n"
         "-----END RSA PRIVATE KEY-----\n"
     )
@@ -125,7 +125,7 @@ def test_sanitize_payload_truncates_long_strings() -> None:
 
 
 def test_sanitize_payload_redacts_secrets() -> None:
-    payload = {"body": "ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD"}
+    payload = {"body": "ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD"}  # pragma: allowlist secret
     sanitized, _, count = sanitize_payload(payload, max_body_chars=10000, block_prompt_injection=False)
     assert "ghp_" not in sanitized["body"]
     assert "[REDACTED_SECRET]" in sanitized["body"]

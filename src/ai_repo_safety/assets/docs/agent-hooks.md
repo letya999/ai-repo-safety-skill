@@ -27,7 +27,7 @@ Those hooks:
 1. append JSONL audit records to `.repo-safety/logs/mcp-audit.jsonl`
 2. allow read-style tools
 3. block write-capable GitHub/GitLab MCP tools by default unless the
-   repo explicitly allowlists them in `.repo-safety.json`
+   repo explicitly allowlists them in `.repo-safety/config.json`
 
 The generated hooks run **only** before sensitive commands such as:
 
@@ -60,7 +60,7 @@ ai-repo-safety install-agent-hooks --target . --tool antigravity
 ## Generated files
 
 ```text
-scripts/security/agent_hook_runner.py
+.repo-safety/scripts/agent_hook_runner.py
 docs/agent-hooks.md
 .codex/hooks.json
 .claude/settings.json
@@ -88,7 +88,7 @@ These hooks are intentionally **project-local**, not global:
 
 ## Design notes
 
-- The hook logic is centralized in `scripts/security/agent_hook_runner.py`.
+- The hook logic is centralized in `.repo-safety/scripts/agent_hook_runner.py`.
 - The runner uses only the Python standard library so it can execute
   inside the local project without importing `ai_repo_safety`.
 - `gitleaks` is mandatory in the preflight profile because a repo
@@ -108,7 +108,7 @@ These hooks are intentionally **project-local**, not global:
 
 ## MCP Policy
 
-Optional repository policy in `.repo-safety.json`:
+Optional repository policy in `.repo-safety/config.json`:
 
 ```json
 {

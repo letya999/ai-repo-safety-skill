@@ -3,6 +3,8 @@ from __future__ import annotations
 import shutil
 import subprocess  # nosec
 import sys
+import tempfile
+from pathlib import Path
 
 
 def run(command: list[str], required: bool = False) -> int:
@@ -37,13 +39,25 @@ def trufflehog_since_commit() -> str | None:
                 return sha
     proc = subprocess.run(
         ["git", "rev-list", "--max-count=20", "HEAD"],
-        capture_output=True, text=True, timeout=20,  # nosec
+        capture_output=True,
+        text=True,
+        timeout=20,  # nosec
     )
     if proc.returncode == 0:
         commits = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
         if len(commits) >= 2:
             return commits[-1]
     return None
+
+
+def trufflehog_exclude_args() -> list[str]:
+    exclude_file = Path(".repo-safety") / "trufflehog-exclude.txt"
+    if exclude_file.exists():
+        return ["--exclude-paths", str(exclude_file)]
+    fh = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
+    with fh:
+        fh.write(r"(^|[\\/])(\.venv|venv|node_modules|\.opencode[\\/]node_modules|\.agents[\\/]node_modules)([\\/]|$)" + "\n")
+    return ["--exclude-paths", fh.name]
 
 
 def python_executable() -> str:
@@ -54,14 +68,24 @@ def python_executable() -> str:
     return sys.executable
 
 
+def helper_script(name: str) -> str | None:
+    for rel in (f".repo-safety/scripts/{name}", f"scripts/security/{name}"):
+        if Path(rel).exists():
+            return rel
+    return None
+
+
 def main() -> int:
     py = python_executable()
     failures = 0
-    checks: list[tuple[list[str], bool]] = [
-        ([py, "scripts/security/forbid_sensitive_files.py", "--all"], True),
-        ([py, "scripts/security/scan_mcp_config.py"], True),
-        (["gitleaks", "detect", "--source", ".", "--redact", "--exit-code", "1"], False),
-    ]
+    checks: list[tuple[list[str], bool]] = []
+    forbid_script = helper_script("forbid_sensitive_files.py")
+    if forbid_script:
+        checks.append(([py, forbid_script, "--all"], True))
+    mcp_script = helper_script("scan_mcp_config.py")
+    if mcp_script:
+        checks.append(([py, mcp_script], True))
+    checks.append((["gitleaks", "detect", "--source", ".", "--redact", "--exit-code", "1"], False))
     if git_has_commits():
         since = trufflehog_since_commit()
         if since:
@@ -73,6 +97,7 @@ def main() -> int:
                         "file://.",
                         "--since-commit",
                         since,
+                        *trufflehog_exclude_args(),
                         "--results=verified,unknown",
                         "--fail",
                     ],
@@ -86,6 +111,7 @@ def main() -> int:
                         "trufflehog",
                         "filesystem",
                         ".",
+                        *trufflehog_exclude_args(),
                         "--results=verified,unknown",
                         "--fail",
                     ],
@@ -99,6 +125,7 @@ def main() -> int:
                     "trufflehog",
                     "filesystem",
                     ".",
+                    *trufflehog_exclude_args(),
                     "--results=verified,unknown",
                     "--fail",
                 ],

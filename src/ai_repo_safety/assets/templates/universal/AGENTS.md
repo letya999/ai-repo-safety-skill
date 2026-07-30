@@ -4,7 +4,7 @@ This repository uses AI Repo Safety guardrails. Follow these rules before coding
 
 ## Mandatory workflow
 
-1. Before feature work, ensure `.gitignore`, `.env.example`, `.pre-commit-config.yaml`, `.repo-safety.json`, and `scripts/security/*` exist.
+1. Before feature work, ensure `.gitignore`, `.env.example`, `SECURITY.md`, `.dockerignore`, and `.repo-safety/*` exist.
 2. Before commit, run `pre-commit run --all-files` or `ai-repo-safety scan --target .`.
 3. Before push, run `ai-repo-safety prepush --target .`.
 4. Before making the repo public, creating a public issue/PR, or publishing logs, run the release verifier checklist in `assets/agents/release-verifier.md` if available.

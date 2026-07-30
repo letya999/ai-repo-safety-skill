@@ -76,13 +76,29 @@ SECRET_PATTERNS = [
     (re.compile(r"ghu_[A-Za-z0-9_]{36,255}"), "GitHub User Token"),
     (re.compile(r"ghs_[A-Za-z0-9_]{36,255}"), "GitHub Server Token"),
     (re.compile(r"ghr_[A-Za-z0-9_]{36,255}"), "GitHub Refresh Token"),
-    (re.compile(r"github_pat_[A-Za-z0-9_]{82}"), "GitHub Fine-Grained Personal Access Token"),
+    (
+        re.compile(r"github_pat_[A-Za-z0-9_]{82}"),
+        "GitHub Fine-Grained Personal Access Token",
+    ),
     (re.compile(r"AKIA[0-9A-Z]{16}"), "AWS Access Key ID"),
     (re.compile(r"ASIA[0-9A-Z]{16}"), "AWS Session Access Key ID"),
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"), "Private Key Header"),
-    (re.compile(r"(?i)\b(?:aws_)?secret(?:_access)?_key\s*=\s*['\"]([A-Za-z0-9/+=]{40})['\"]"), "Potential AWS Secret Access Key"),
-    (re.compile(r"(?i)\b(?:slack_)?token\s*=\s*['\"](xoxb-[0-9]+-[0-9]+-[a-zA-Z0-9]+)['\"]"), "Potential Slack Bot Token"),
-    (re.compile(r"(?i)\bxox[abprs]-[0-9]+-[0-9]+-[A-Za-z0-9]+"), "Potential Slack Token"),
+    (
+        re.compile(
+            r"(?i)\b(?:aws_)?secret(?:_access)?_key\s*=\s*['\"]([A-Za-z0-9/+=]{40})['\"]"
+        ),
+        "Potential AWS Secret Access Key",
+    ),
+    (
+        re.compile(
+            r"(?i)\b(?:slack_)?token\s*=\s*['\"](xoxb-[0-9]+-[0-9]+-[a-zA-Z0-9]+)['\"]"
+        ),
+        "Potential Slack Bot Token",
+    ),
+    (
+        re.compile(r"(?i)\bxox[abprs]-[0-9]+-[0-9]+-[A-Za-z0-9]+"),
+        "Potential Slack Token",
+    ),
     (re.compile(r"npm_[A-Za-z0-9]{36}"), "npm Automation Token"),
     (re.compile(r"pypi-AgEIcHlwaS5vcmc[A-Za-z0-9_-]{50,}"), "PyPI Upload Token"),
 ]
@@ -95,7 +111,7 @@ def is_ignored_directory(path: Path, root: Path) -> bool:
     except ValueError:
         return False
     for part in relative.parts:
-        if part in IGNORED_DIRS:
+        if part in IGNORED_DIRS or part.startswith(".venv-"):
             return True
     return False
 
@@ -125,7 +141,9 @@ def scan_directory(target_dir: str | Path) -> list[dict]:
     # 1. Walk directory and check filenames
     for dirpath, dirnames, filenames in os.walk(root):
         # Filter out ignored directories in-place to prevent os.walk from entering them
-        dirnames[:] = [d for d in dirnames if d not in IGNORED_DIRS]
+        dirnames[:] = [
+            d for d in dirnames if d not in IGNORED_DIRS and not d.startswith(".venv-")
+        ]
 
         current_dir = Path(dirpath)
         if is_ignored_directory(current_dir, root):
@@ -142,18 +160,24 @@ def scan_directory(target_dir: str | Path) -> list[dict]:
             matched_forbidden: str | None = None
             for pattern in FORBIDDEN_PATTERNS:
                 if fnmatch.fnmatch(filename, pattern):
-                    if filename in ALLOWED_FORBIDDEN_FILE_MATCHES or is_template_path:
+                    if (
+                        filename in ALLOWED_FORBIDDEN_FILE_MATCHES
+                        or fnmatch.fnmatch(filename, ".env.*.example")
+                        or is_template_path
+                    ):
                         matched_forbidden = None
                     else:
                         matched_forbidden = pattern
                     break
 
             if matched_forbidden is not None:
-                findings.append({
-                    "file": rel_path_str,
-                    "type": "forbidden_file",
-                    "message": f"Forbidden file found: {filename} (matched pattern: {matched_forbidden})",
-                })
+                findings.append(
+                    {
+                        "file": rel_path_str,
+                        "type": "forbidden_file",
+                        "message": f"Forbidden file found: {filename} (matched pattern: {matched_forbidden})",
+                    }
+                )
                 # If it's a real forbidden file, do not scan its contents
                 # for secrets again; the filename match is the warning.
                 continue
@@ -182,15 +206,17 @@ def scan_directory(target_dir: str | Path) -> list[dict]:
                     finding_type = (
                         "secret_placeholder" if is_template_path else "secret_content"
                     )
-                    findings.append({
-                        "file": rel_path_str,
-                        "line": line_num,
-                        "type": finding_type,
-                        "message": f"Potential {desc} detected",
-                        # Surface that the match value is intentionally
-                        # suppressed in the output to avoid log echoes
-                        # of real credentials when this scan is shared.
-                        "redacted": True,
-                    })
+                    findings.append(
+                        {
+                            "file": rel_path_str,
+                            "line": line_num,
+                            "type": finding_type,
+                            "message": f"Potential {desc} detected",
+                            # Surface that the match value is intentionally
+                            # suppressed in the output to avoid log echoes
+                            # of real credentials when this scan is shared.
+                            "redacted": True,
+                        }
+                    )
 
     return findings

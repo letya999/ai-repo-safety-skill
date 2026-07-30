@@ -16,7 +16,7 @@ If a secret was committed, printed, pasted into an issue, sent to an agent, or o
    - releases
    - agent logs
    - MCP configs
-5. Add file patterns to `.gitignore` and `.repo-safety.json`.
+5. Add file patterns to `.gitignore` and `.repo-safety/config.json`.
 6. Remove from Git index if currently tracked:
    `git rm --cached path/to/file`
 7. Rewrite history only after coordination:

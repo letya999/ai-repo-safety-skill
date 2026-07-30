@@ -37,7 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", default=".")
     p.add_argument("--python", choices=["auto", "yes", "no"], default="auto")
     p.add_argument("--github", choices=["auto", "yes", "no"], default="auto")
+    p.add_argument("--gitlab", choices=["auto", "yes", "no"], default="auto")
     p.add_argument("--overwrite", action="store_true")
+    p.add_argument("--full", action="store_true", help="apply full root-level integrations instead of the minimal namespaced footprint")
     p.add_argument(
         "--apply",
         action="store_true",
@@ -68,7 +70,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", default=".")
     p.add_argument("--python", choices=["auto", "yes", "no"], default="auto")
     p.add_argument("--github", choices=["auto", "yes", "no"], default="auto")
+    p.add_argument("--gitlab", choices=["auto", "yes", "no"], default="auto")
     p.add_argument("--overwrite", action="store_true")
+    p.add_argument("--full", action="store_true", help="apply full root-level integrations instead of the minimal namespaced footprint")
 
     p = sub.add_parser("install-hooks", help="install Git pre-push hook (refuses to overwrite existing unmanaged hooks)")
     p.add_argument("--target", default=".")
@@ -119,6 +123,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--sarif",
         action="store_true",
         help="emit the scan result as SARIF 2.1.0 on stdout",
+    )
+    p.add_argument(
+        "--agent-skills",
+        action="store_true",
+        help="include optional AI agent skill scanners when available",
+    )
+    p.add_argument(
+        "--allow-cloud-agent-scan",
+        action="store_true",
+        help="allow cloud-backed agent metadata scanning tools such as snyk-agent-scan",
     )
 
     p = sub.add_parser("prepush", help="run pre-push gate")
@@ -243,7 +257,9 @@ def main(argv: list[str] | None = None) -> int:
             args.target,
             python=args.python,
             github=args.github,
+            gitlab=args.gitlab,
             overwrite=args.overwrite,
+            full=args.full,
             mode="apply" if args.apply else "plan",
             install_tools=args.install_tools,
             configure_github=args.configure_github,
@@ -251,7 +267,14 @@ def main(argv: list[str] | None = None) -> int:
             yes=args.yes,
         )
     if args.cmd == "init":
-        return init_project(args.target, python=args.python, github=args.github, overwrite=args.overwrite)
+        return init_project(
+            args.target,
+            python=args.python,
+            github=args.github,
+            gitlab=args.gitlab,
+            overwrite=args.overwrite,
+            full=args.full,
+        )
     if args.cmd == "install-hooks":
         return install_hooks(
             args.target,
@@ -275,7 +298,13 @@ def main(argv: list[str] | None = None) -> int:
                 offline=args.offline,
                 sarif=args.sarif,
             )
-        return scan(args.target, strict=args.strict, offline=args.offline)
+        return scan(
+            args.target,
+            strict=args.strict,
+            offline=args.offline,
+            agent_skills=args.agent_skills,
+            allow_cloud_agent_scan=args.allow_cloud_agent_scan,
+        )
     if args.cmd == "prepush":
         return prepush(args.target)
     if args.cmd == "threat-model":

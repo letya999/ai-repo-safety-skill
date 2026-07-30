@@ -27,5 +27,5 @@ Rules:
 Run:
 
 ```bash
-python scripts/security/scan_mcp_config.py
+python .repo-safety/scripts/scan_mcp_config.py
 ```

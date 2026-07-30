@@ -9,18 +9,18 @@ SUPPORTED_TOOLS = ("codex", "claude", "opencode", "antigravity")
 
 
 def _python_hook_command() -> str:
-    return "python scripts/security/agent_hook_runner.py"
+    return "python .repo-safety/scripts/agent_hook_runner.py"
 
 
 def _python_hook_command_windows() -> str:
-    return "py -3 scripts/security/agent_hook_runner.py"
+    return "py -3 .repo-safety\\scripts\\agent_hook_runner.py"
 
 
 def _copy_runtime_assets(root: Path, *, overwrite: bool = False) -> list[str]:
     actions: list[str] = []
     assets = [
-        ("scripts/agent_hook_runner.py", "scripts/security/agent_hook_runner.py"),
-        ("docs/agent-hooks.md", "docs/agent-hooks.md"),
+        ("scripts/agent_hook_runner.py", ".repo-safety/scripts/agent_hook_runner.py"),
+        ("docs/agent-hooks.md", ".repo-safety/docs/agent-hooks.md"),
     ]
     for asset, dest in assets:
         if write_text(root / dest, asset_text(asset), overwrite=overwrite):
@@ -84,7 +84,7 @@ def _claude_settings_json() -> str:
                             "type": "command",
                             "command": "python",
                             "args": [
-                                "${CLAUDE_PROJECT_DIR}/scripts/security/agent_hook_runner.py",
+                                "${CLAUDE_PROJECT_DIR}/.repo-safety/scripts/agent_hook_runner.py",
                                 "--profile",
                                 "sensitive-preflight",
                             ],
@@ -98,7 +98,7 @@ def _claude_settings_json() -> str:
                             "type": "command",
                             "command": "python",
                             "args": [
-                                "${CLAUDE_PROJECT_DIR}/scripts/security/agent_hook_runner.py",
+                                "${CLAUDE_PROJECT_DIR}/.repo-safety/scripts/agent_hook_runner.py",
                                 "--profile",
                                 "mcp-invocation-audit",
                             ],
@@ -112,7 +112,7 @@ def _claude_settings_json() -> str:
                             "type": "command",
                             "command": "python",
                             "args": [
-                                "${CLAUDE_PROJECT_DIR}/scripts/security/agent_hook_runner.py",
+                                "${CLAUDE_PROJECT_DIR}/.repo-safety/scripts/agent_hook_runner.py",
                                 "--profile",
                                 "mcp-invocation-audit",
                             ],
@@ -129,7 +129,7 @@ def _opencode_plugin_js() -> str:
     return """export const AiRepoSafetyPlugin = async ({ $ }) => {
   const runProfile = async (command) => {
     if (!command) return
-    await $`python scripts/security/agent_hook_runner.py --profile sensitive-preflight --command ${command}`
+    await $`python .repo-safety/scripts/agent_hook_runner.py --profile sensitive-preflight --command ${command}`
   }
 
   return {

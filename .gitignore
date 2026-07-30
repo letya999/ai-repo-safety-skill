@@ -75,12 +75,10 @@ claude_desktop_config.json
 # agent logs / local AI context
 .claude/
 .codex/
-.opencode/
 .cursor/
 .windsurf/
 .gemini/
 .agent/
-.agents/
 .ai/
 *.session
 *.transcript

@@ -16,6 +16,7 @@ You are applying one powerful universal safety skill to a repository. Your job i
 - Opengrep-first SAST, not Semgrep-first
 - GitHub profile only when GitHub is detected or requested
 - GitLab profile for SaaS and Self-Hosted instances
+- Minimal, append-only repo footprint by default; full root-level bootstrap only when explicitly requested
 
 ## When to use
 
@@ -65,7 +66,18 @@ uv run ai-repo-safety <command> --target <path-to-target-repo>
 3. Initialize safety assets:
 
    ```bash
-   uv run ai-repo-safety init --target . --python auto --github auto
+   uv run ai-repo-safety init --target . --python auto --github auto --gitlab auto
+   ```
+
+   Default init may create/update `AGENTS.md`, `.gitignore`, `.dockerignore`,
+   `SECURITY.md`, `.github/`, `.gitlab/`, and `.repo-safety/`. It stores helper
+   scripts, docs, templates, and policy under `.repo-safety/` rather than
+   scattering project-specific files through the repository root.
+
+   For a deliberate all-in bootstrap, use:
+
+   ```bash
+   uv run ai-repo-safety init --target . --full
    ```
 
 4. Install local hooks:
@@ -80,6 +92,15 @@ uv run ai-repo-safety <command> --target <path-to-target-repo>
    ```bash
    uv run ai-repo-safety scan --target .
    ```
+
+   For AI agent skill scanning, run:
+
+   ```bash
+   uv run ai-repo-safety scan --target . --agent-skills
+   ```
+
+   Use `--allow-cloud-agent-scan` only when the user explicitly accepts
+   cloud-backed metadata analysis by Snyk Agent Scan.
 
 6. Fix obvious issues:
    - move secrets to env variables,
@@ -120,6 +141,10 @@ When operating on OpenCode repositories, follow the specific flow documented in 
 - Gitleaks / TruffleHog / detect-secrets gates
 - Opengrep-compatible SAST rules
 - Bandit / Ruff / pip-audit for Python
+- gosec / govulncheck for Go
+- cargo-audit / cargo-deny for Rust
+- ESLint / package-manager audit / OSV Scanner for JavaScript, TypeScript, and Angular
+- optional SkillSpector, Cisco Skill Scanner, and Snyk Agent Scan for agent skills
 - OSV-Scanner / Renovate / SBOM templates for supply-chain audit
 - GitHub Actions workflows for public repo hygiene
 - GitHub and GitLab read guard for commits, PRs/MRs, branches, and issues

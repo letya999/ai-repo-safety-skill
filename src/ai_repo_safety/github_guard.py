@@ -1,6 +1,7 @@
 """github_guard.py — read guard for GitHub issues, PRs, branches, and commits.
 
-Fetches data via ``gh api`` and applies policy from ``.repo-safety.json``
+Fetches data via ``gh api`` and applies policy from ``.repo-safety/config.json``
+with fallback support for legacy ``.repo-safety.json``
 (``github_read_guard`` section). Redacts secrets and optionally blocks
 prompt-injection patterns before the payload reaches the AI context.
 """
@@ -11,7 +12,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .util import git_origin, load_json, parse_github_repo_from_url, run_cmd, which
+from .util import git_origin, load_repo_policy, parse_github_repo_from_url, run_cmd, which
 
 SECRET_PATTERNS = [
     re.compile(r"ghp_[A-Za-z0-9_]{20,}"),
@@ -42,7 +43,7 @@ RESOURCE_ENDPOINTS = {
 
 
 def load_policy(root: Path) -> dict[str, Any]:
-    return load_json(root / ".repo-safety.json", default={}).get("github_read_guard", {})
+    return load_repo_policy(root).get("github_read_guard", {})
 
 
 def normalize_resource(policy: dict[str, Any], resource: str) -> str:

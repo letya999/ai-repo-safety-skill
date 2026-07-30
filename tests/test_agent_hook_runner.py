@@ -12,7 +12,7 @@ from ai_repo_safety.assets.scripts.agent_hook_runner import opengrep_command, tr
 
 def test_agent_hook_runner_skips_non_sensitive_command(tmp_path: Path) -> None:
     main(["install-agent-hooks", "--target", str(tmp_path), "--tool", "codex"])
-    script = tmp_path / "scripts" / "security" / "agent_hook_runner.py"
+    script = tmp_path / ".repo-safety" / "scripts" / "agent_hook_runner.py"
     proc = subprocess.run(  # nosec
         [sys.executable, str(script), "--profile", "sensitive-preflight", "--command", "python -m pytest"],
         cwd=tmp_path,
@@ -26,7 +26,7 @@ def test_agent_hook_runner_skips_non_sensitive_command(tmp_path: Path) -> None:
 
 def test_agent_hook_runner_blocks_sensitive_command_when_scanner_missing(tmp_path: Path) -> None:
     main(["install-agent-hooks", "--target", str(tmp_path), "--tool", "codex"])
-    script = tmp_path / "scripts" / "security" / "agent_hook_runner.py"
+    script = tmp_path / ".repo-safety" / "scripts" / "agent_hook_runner.py"
     env = os.environ.copy()
     env["PATH"] = ""
     proc = subprocess.run(  # nosec
@@ -51,7 +51,7 @@ def test_install_agent_hooks_refuses_existing_config_without_overwrite(tmp_path:
 
 def test_mcp_audit_blocks_write_capable_gitlab_tool_and_logs(tmp_path: Path) -> None:
     main(["install-agent-hooks", "--target", str(tmp_path), "--tool", "codex"])
-    script = tmp_path / "scripts" / "security" / "agent_hook_runner.py"
+    script = tmp_path / ".repo-safety" / "scripts" / "agent_hook_runner.py"
     payload = {
         "hook_event_name": "PreToolUse",
         "tool_name": "mcp__gitlab__create_merge_request_note",
@@ -90,7 +90,7 @@ def test_mcp_audit_allows_allowlisted_write_tool(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    script = tmp_path / "scripts" / "security" / "agent_hook_runner.py"
+    script = tmp_path / ".repo-safety" / "scripts" / "agent_hook_runner.py"
     payload = {
         "hook_event_name": "PreToolUse",
         "tool_name": "mcp__gitlab__create_merge_request_note",
@@ -110,7 +110,7 @@ def test_mcp_audit_allows_allowlisted_write_tool(tmp_path: Path) -> None:
 
 def test_mcp_audit_allows_read_style_gitlab_tool_with_note_noun(tmp_path: Path) -> None:
     main(["install-agent-hooks", "--target", str(tmp_path), "--tool", "codex"])
-    script = tmp_path / "scripts" / "security" / "agent_hook_runner.py"
+    script = tmp_path / ".repo-safety" / "scripts" / "agent_hook_runner.py"
     payload = {
         "hook_event_name": "PreToolUse",
         "tool_name": "mcp__gitlab__get_merge_request_note",

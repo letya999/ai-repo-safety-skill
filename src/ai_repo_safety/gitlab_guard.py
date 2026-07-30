@@ -2,7 +2,8 @@
 
 Mirrors github_guard but targets GitLab API via ``glab api``.
 Self-hosted support: set ``gitlab_host`` in the ``gitlab_read_guard`` section
-of ``.repo-safety.json``.
+of ``.repo-safety/config.json``. Legacy ``.repo-safety.json`` is still read as
+a fallback.
 """
 from __future__ import annotations
 
@@ -12,7 +13,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Any
 
-from .util import git_origin, load_json, parse_gitlab_repo_from_url, run_cmd, which
+from .util import git_origin, load_repo_policy, parse_gitlab_repo_from_url, run_cmd, which
 
 # ---------------------------------------------------------------------------
 # Secret patterns — GitLab-specific first, then shared ones
@@ -72,7 +73,7 @@ DROP_FIELDS: frozenset[str] = frozenset({
 
 
 def load_policy(root: Path) -> dict[str, Any]:
-    return load_json(root / ".repo-safety.json", default={}).get("gitlab_read_guard", {})
+    return load_repo_policy(root).get("gitlab_read_guard", {})
 
 
 def normalize_resource(policy: dict[str, Any], resource: str) -> str:
