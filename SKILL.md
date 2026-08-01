@@ -69,10 +69,11 @@ uv run ai-repo-safety <command> --target <path-to-target-repo>
    uv run ai-repo-safety init --target . --python auto --github auto --gitlab auto
    ```
 
-   Default init may create/update `AGENTS.md`, `.gitignore`, `.dockerignore`,
-   `SECURITY.md`, `.github/`, `.gitlab/`, and `.repo-safety/`. It stores helper
-   scripts, docs, templates, and policy under `.repo-safety/` rather than
-   scattering project-specific files through the repository root.
+   Default init keeps its generated assets under `.repo-safety/` so the skill
+   does not scatter helper scripts, docs, templates, and policy through the
+   repository root. For deliberate root-level integration files such as
+   `AGENTS.md`, `.gitignore`, `.dockerignore`, `SECURITY.md`, `.github/`, and
+   `.gitlab/`, use `--full`.
 
    For a deliberate all-in bootstrap, use:
 

@@ -96,10 +96,16 @@ def _install_namespaced_assets(root: Path, *, overwrite: bool = False) -> list[s
         ("scripts/forbid_sensitive_files.py", ".repo-safety/scripts/forbid_sensitive_files.py"),
         ("scripts/prepush.py", ".repo-safety/scripts/prepush.py"),
         ("scripts/scan_mcp_config.py", ".repo-safety/scripts/scan_mcp_config.py"),
-        ("templates/universal/pre-commit-config.yaml", ".repo-safety/templates/pre-commit-config.yaml"),
+        ("templates/universal/AGENTS.md", ".repo-safety/templates/AGENTS.md"),
+        ("templates/universal/AGENTS.append.md", ".repo-safety/templates/AGENTS.append.md"),
+        ("templates/universal/SECURITY.md", ".repo-safety/templates/SECURITY.md"),
+        ("templates/universal/dockerignore", ".repo-safety/templates/.dockerignore"),
+        ("templates/universal/env.example", ".repo-safety/templates/.env.example"),
+        ("templates/universal/gitignore.block", ".repo-safety/templates/.gitignore.block"),
+        ("templates/universal/pre-commit-config.yaml", ".repo-safety/templates/.pre-commit-config.yaml"),
         ("templates/python/bandit.yaml", ".repo-safety/templates/bandit.yaml"),
         ("templates/python/pyproject.ai-repo-safety.toml", ".repo-safety/templates/pyproject.ai-repo-safety.toml"),
-        ("templates/github/renovate.json", ".repo-safety/templates/renovate.json"),
+        ("templates/github/renovate.json", ".repo-safety/templates/github/renovate.json"),
     ]:
         if copy_asset(asset, root / dest, overwrite=overwrite):
             actions.append(f"created {dest}")
@@ -110,32 +116,6 @@ def _install_namespaced_assets(root: Path, *, overwrite: bool = False) -> list[s
 
 def apply_universal(root: Path, *, overwrite: bool = False, full: bool = False) -> list[str]:
     actions: list[str] = []
-
-    block = asset_text("templates/universal/gitignore.block")
-    status = append_marked_block(root / ".gitignore", "AI REPO SAFETY", block)
-    actions.append(f".gitignore {status}")
-
-    if copy_asset("templates/universal/env.example", root / ".env.example", overwrite=overwrite):
-        actions.append("created .env.example")
-    else:
-        actions.append("kept existing .env.example")
-
-    if not (root / "AGENTS.md").exists() and copy_asset("templates/universal/AGENTS.md", root / "AGENTS.md", overwrite=overwrite):
-        actions.append("created AGENTS.md")
-    else:
-        status = append_marked_block(root / "AGENTS.md", "AI REPO SAFETY RULES", asset_text("templates/universal/AGENTS.append.md"))
-        actions.append(f"AGENTS.md {status}")
-
-    for asset, dest in [
-        ("templates/universal/SECURITY.md", "SECURITY.md"),
-        ("templates/universal/dockerignore", ".dockerignore"),
-    ]:
-        path = root / dest
-        if copy_asset(asset, path, overwrite=overwrite):
-            actions.append(f"created {dest}")
-        else:
-            actions.append(f"kept existing {dest}")
-
     actions.extend(_install_namespaced_assets(root, overwrite=overwrite))
     if write_text(root / ".repo-safety" / "trufflehog-exclude.txt", DEFAULT_TRUFFLEHOG_EXCLUDES, overwrite=overwrite):
         actions.append("created .repo-safety/trufflehog-exclude.txt")
@@ -144,7 +124,24 @@ def apply_universal(root: Path, *, overwrite: bool = False, full: bool = False) 
     actions.extend(_write_policy(root, overwrite=overwrite))
 
     if full:
+        block = asset_text("templates/universal/gitignore.block")
+        status = append_marked_block(root / ".gitignore", "AI REPO SAFETY", block)
+        actions.append(f".gitignore {status}")
+
+        if copy_asset("templates/universal/env.example", root / ".env.example", overwrite=overwrite):
+            actions.append("created .env.example")
+        else:
+            actions.append("kept existing .env.example")
+
+        if not (root / "AGENTS.md").exists() and copy_asset("templates/universal/AGENTS.md", root / "AGENTS.md", overwrite=overwrite):
+            actions.append("created AGENTS.md")
+        else:
+            status = append_marked_block(root / "AGENTS.md", "AI REPO SAFETY RULES", asset_text("templates/universal/AGENTS.append.md"))
+            actions.append(f"AGENTS.md {status}")
+
         for asset, dest in [
+            ("templates/universal/SECURITY.md", "SECURITY.md"),
+            ("templates/universal/dockerignore", ".dockerignore"),
             ("templates/universal/pre-commit-config.yaml", ".pre-commit-config.yaml"),
             ("docs/agent-hooks.md", "docs/agent-hooks.md"),
             ("docs/mcp-safety.md", "docs/mcp-safety.md"),
@@ -268,13 +265,17 @@ def init_project(
     else:
         actions.append("python profile skipped")
 
-    if github_enabled:
+    if github_enabled and full:
         actions.extend(apply_github(root, overwrite=overwrite))
+    elif github_enabled:
+        actions.append("github profile detected; root files skipped (use --full to apply)")
     else:
         actions.append("github profile skipped")
 
-    if gitlab_enabled:
+    if gitlab_enabled and full:
         actions.extend(apply_gitlab(root, overwrite=overwrite))
+    elif gitlab_enabled:
+        actions.append("gitlab profile detected; root files skipped (use --full to apply)")
     else:
         actions.append("gitlab profile skipped")
 

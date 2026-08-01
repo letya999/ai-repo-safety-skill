@@ -188,11 +188,11 @@ Cursor uses `.cursorrules` to guide its Chat and Composer features:
 
 ## Tool philosophy
 
-`init` uses a minimal, append-only footprint by default. It may create or update
-`AGENTS.md`, `.gitignore`, `.dockerignore`, `SECURITY.md`, `.github/`, `.gitlab/`,
-and namespaced files under `.repo-safety/`. Project-specific examples, docs,
-helper scripts, and scanner templates stay under `.repo-safety/` unless you pass
-`--full`, which applies the explicit root-level integration profile.
+`init` uses a minimal, append-only footprint by default. In the default mode it
+keeps generated assets under `.repo-safety/` only. Root-level files such as
+`AGENTS.md`, `.gitignore`, `.dockerignore`, `SECURITY.md`, `.github/`, and
+`.gitlab/` are written only when you pass `--full`, which applies the explicit
+root-level integration profile.
 
 Default tools are free / OSS / community:
 
@@ -253,6 +253,6 @@ Agents should use this wrapper instead of direct `gh api`, `gh pr view`, `glab a
 
 ## Important limits
 
-This project gives strong local deterministic gates, but it cannot magically intercept every external AI tool. The included `AGENTS.md` and hook templates force agents to use the guardrails, but each client has different hook/plugin support.
+This project gives strong local deterministic gates, but it cannot magically intercept every external AI tool. In minimal mode the repo-local templates live under `.repo-safety/templates/`; use `--full` when you want a committed root `AGENTS.md` plus the hook templates for clients that read root instructions automatically.
 
 The safe default is: if the agent cannot enforce a guardrail in its runtime, it must run the CLI guard before the risky action.

@@ -194,9 +194,11 @@ python -m venv /tmp/ars-after-release
 /tmp/ars-after-release/bin/pip install --upgrade ai-repo-safety==X.Y.Z
 /tmp/ars-after-release/bin/ai-repo-safety --version
 /tmp/ars-after-release/bin/ai-repo-safety init --target /tmp/ars-after-target --python yes --github no
-test -f /tmp/ars-after-target/AGENTS.md
-test -f /tmp/ars-after-target/SECURITY.md
+test ! -f /tmp/ars-after-target/AGENTS.md
+test ! -f /tmp/ars-after-target/SECURITY.md
 test -f /tmp/ars-after-target/.repo-safety/opengrep/python-dangerous-code.yml
+test -f /tmp/ars-after-target/.repo-safety/templates/AGENTS.md
+test -f /tmp/ars-after-target/.repo-safety/templates/SECURITY.md
 ```
 
 This is the same smoke the CI `package-smoke` job runs, but

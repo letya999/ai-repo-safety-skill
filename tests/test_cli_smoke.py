@@ -15,16 +15,19 @@ def test_doctor_runs() -> None:
 def test_init_project(tmp_path: Path) -> None:
     code = main(["init", "--target", str(tmp_path), "--python", "yes", "--github", "no"])
     assert code == 0
-    assert (tmp_path / ".gitignore").exists()
-    assert (tmp_path / ".dockerignore").exists()
-    assert (tmp_path / ".env.example").exists()
-    assert (tmp_path / "AGENTS.md").exists()
-    assert (tmp_path / "SECURITY.md").exists()
     assert (tmp_path / ".repo-safety" / "config.json").exists()
     assert (tmp_path / ".repo-safety" / "trufflehog-exclude.txt").exists()
     assert (tmp_path / ".repo-safety" / "scripts" / "forbid_sensitive_files.py").exists()
     assert (tmp_path / ".repo-safety" / "docs" / "agent-hooks.md").exists()
+    assert (tmp_path / ".repo-safety" / "templates" / "AGENTS.md").exists()
+    assert (tmp_path / ".repo-safety" / "templates" / "SECURITY.md").exists()
+    assert (tmp_path / ".repo-safety" / "templates" / ".env.example").exists()
     assert not (tmp_path / "scripts" / "security" / "forbid_sensitive_files.py").exists()
+    assert not (tmp_path / ".gitignore").exists()
+    assert not (tmp_path / ".dockerignore").exists()
+    assert not (tmp_path / ".env.example").exists()
+    assert not (tmp_path / "AGENTS.md").exists()
+    assert not (tmp_path / "SECURITY.md").exists()
     assert not (tmp_path / "bandit.yaml").exists()
     assert not (tmp_path / "pyproject.ai-repo-safety.toml").exists()
 
@@ -32,7 +35,7 @@ def test_init_project(tmp_path: Path) -> None:
 def test_init_project_appends_existing_agents_md(tmp_path: Path) -> None:
     agents = tmp_path / "AGENTS.md"
     agents.write_text("# Project Rules\n\nKeep this.\n", encoding="utf-8")
-    code = main(["init", "--target", str(tmp_path), "--python", "no", "--github", "no"])
+    code = main(["init", "--target", str(tmp_path), "--python", "no", "--github", "no", "--full"])
     assert code == 0
     text = agents.read_text(encoding="utf-8")
     assert text.startswith("# Project Rules\n\nKeep this.")
@@ -53,6 +56,13 @@ def test_init_project_full_writes_root_integrations(tmp_path: Path) -> None:
 
 def test_init_project_gitlab_profile(tmp_path: Path) -> None:
     code = main(["init", "--target", str(tmp_path), "--python", "no", "--github", "no", "--gitlab", "yes"])
+    assert code == 0
+    assert not (tmp_path / ".gitlab-ci.yml").exists()
+    assert not (tmp_path / ".gitlab" / "merge_request_templates" / "default.md").exists()
+
+
+def test_init_project_full_writes_gitlab_profile(tmp_path: Path) -> None:
+    code = main(["init", "--target", str(tmp_path), "--python", "no", "--github", "no", "--gitlab", "yes", "--full"])
     assert code == 0
     assert (tmp_path / ".gitlab-ci.yml").exists()
     assert (tmp_path / ".gitlab" / "merge_request_templates" / "default.md").exists()
@@ -155,8 +165,8 @@ def test_setup_apply_with_yes_writes_assets(tmp_path: Path) -> None:
         "--yes",
     ])
     assert code == 0
-    assert (tmp_path / ".gitignore").exists()
-    assert (tmp_path / "AGENTS.md").exists()
     assert (tmp_path / ".repo-safety" / "scripts" / "forbid_sensitive_files.py").exists()
     assert (tmp_path / ".git" / "hooks" / "pre-push").exists()
+    assert not (tmp_path / ".gitignore").exists()
+    assert not (tmp_path / "AGENTS.md").exists()
 

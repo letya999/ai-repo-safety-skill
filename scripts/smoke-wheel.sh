@@ -31,11 +31,14 @@ fi
 "$VENV_BIN/ai-repo-safety" --version
 "$VENV_BIN/ai-repo-safety" init --target .tmp-smoke/target --python yes --github no
 
-test -f .tmp-smoke/target/AGENTS.md
-test -f .tmp-smoke/target/SECURITY.md
+test ! -f .tmp-smoke/target/AGENTS.md
+test ! -f .tmp-smoke/target/SECURITY.md
 test ! -f .tmp-smoke/target/bandit.yaml
 test ! -f .tmp-smoke/target/pyproject.ai-repo-safety.toml
 test -f .tmp-smoke/target/.repo-safety/config.json
+test -f .tmp-smoke/target/.repo-safety/templates/AGENTS.md
+test -f .tmp-smoke/target/.repo-safety/templates/SECURITY.md
+test -f .tmp-smoke/target/.repo-safety/templates/.env.example
 test -f .tmp-smoke/target/.repo-safety/templates/bandit.yaml
 test -f .tmp-smoke/target/.repo-safety/templates/pyproject.ai-repo-safety.toml
 test -f .tmp-smoke/target/.repo-safety/opengrep/python-dangerous-code.yml
