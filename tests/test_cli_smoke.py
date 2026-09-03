@@ -12,6 +12,11 @@ def test_doctor_runs() -> None:
     assert code in (0, 2)
 
 
+def test_doctor_accepts_target_and_json(tmp_path: Path) -> None:
+    code = main(["doctor", "--target", str(tmp_path), "--json"])
+    assert code in (0, 2)
+
+
 def test_init_project(tmp_path: Path) -> None:
     code = main(["init", "--target", str(tmp_path), "--python", "yes", "--github", "no"])
     assert code == 0
@@ -105,6 +110,14 @@ def test_install_agent_hooks_writes_runtime_configs(tmp_path: Path) -> None:
     antigravity_data = json.loads(antigravity_hooks.read_text(encoding="utf-8"))
     assert antigravity_data["hooks"]["PreToolUse"][0]["matcher"] == "Bash"
     assert "commandWindows" in antigravity_data["hooks"]["PreToolUse"][0]["hooks"][0]
+
+    grok_hooks = tmp_path / ".grok" / "hooks" / "ai-repo-safety.json"
+    assert grok_hooks.exists()
+    grok_data = json.loads(grok_hooks.read_text(encoding="utf-8"))
+    assert grok_data["hooks"]["PreToolUse"][0]["matcher"] == "Bash|run_terminal_command"
+    assert grok_data["hooks"]["PreToolUse"][0]["hooks"][0]["timeout"] == 600
+    assert "--profile gate" in grok_data["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    assert grok_data["hooks"]["PreToolUse"][1]["matcher"] == "^(mcp__)?(github|gitlab)__.*$"
 
 
 def test_install_agent_hooks_for_single_runtime_scopes_output(tmp_path: Path) -> None:

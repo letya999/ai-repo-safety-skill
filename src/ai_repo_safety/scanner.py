@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 import tempfile
 from pathlib import Path
@@ -100,20 +99,6 @@ def _trufflehog_exclude_args(root: Path) -> list[str]:
     with fh:
         fh.write(r"(^|[\\/])(\.venv|venv|node_modules|\.opencode[\\/]node_modules|\.agents[\\/]node_modules)([\\/]|$)" + "\n")
     return ["--exclude-paths", fh.name]
-
-
-def _pip_audit_env(root: Path) -> dict[str, str]:
-    env = os.environ.copy()
-    candidates = [
-        root / ".venv" / "Scripts" / "python.exe",
-        root / ".venv" / "bin" / "python",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            env["PIPAPI_PYTHON_LOCATION"] = str(candidate)
-            return env
-    env["PIPAPI_PYTHON_LOCATION"] = sys.executable
-    return env
 
 
 def _looks_like_go_repo(root: Path) -> bool:
@@ -233,18 +218,18 @@ def scan(
                 failures += 1
 
         if offline:
-            print("[repo-safety] skipping pip-audit (offline mode): network_required")
-            network_required_skipped.append("pip-audit")
+            print("[repo-safety] skipping lockfile audit (offline mode): network_required")
+            network_required_skipped.append("lockfile-audit")
         else:
-            command = ["pip-audit"]
-            code, _, _ = run_available(
-                command, cwd=root, required=False, env=_pip_audit_env(root)
-            )
-            if code not in (0, 127):
-                if code == 127:
-                    network_required_skipped.append("pip-audit")
-                else:
-                    failures += 1
+            from .lockfile_audit import audit_lockfile
+
+            code, detail = audit_lockfile(root, required=False, offline=False)
+            if detail:
+                print(detail)
+            if code == 127:
+                network_required_skipped.append("lockfile-audit")
+            elif code != 0:
+                failures += 1
 
     if _looks_like_go_repo(root):
         go_commands = [["gosec", "./..."]]
@@ -301,71 +286,7 @@ def scan(
     return 0
 
 
-def prepush(target: str | Path, *, offline: bool = False) -> int:
-    root = project_root(target)
-    failures = 0
-    py = _python_executable()
-    commands: list[list[str]] = []
-    for name, args in [
-        ("forbid_sensitive_files.py", ["--all"]),
-        ("scan_mcp_config.py", []),
-    ]:
-        script = _helper_script(root, name)
-        if script:
-            commands.append(py + [script, *args])
-    commands.append(["gitleaks", "detect", "--source", ".", "--redact", "--exit-code", "1"])
-    if git_has_commits(root):
-        since = _resolve_trufflehog_since_commit(root)
-        if since:
-            commands.append(
-                [
-                    "trufflehog",
-                    "git",
-                    "file://.",
-                    "--no-update",
-                    "--since-commit",
-                    since,
-                    *_trufflehog_exclude_args(root),
-                    "--results=verified,unknown",
-                    "--fail",
-                ]
-            )
-        else:
-            commands.append(
-                [
-                    "trufflehog",
-                    "filesystem",
-                    ".",
-                    "--no-update",
-                    *_trufflehog_exclude_args(root),
-                    "--results=verified,unknown",
-                    "--fail",
-                ]
-            )
-    else:
-        commands.append(
-            [
-                "trufflehog",
-                "filesystem",
-                ".",
-                "--no-update",
-                *_trufflehog_exclude_args(root),
-                "--results=verified,unknown",
-                "--fail",
-            ]
-        )
+def prepush(target: str | Path, *, offline: bool = False, json_out: bool = False) -> int:
+    from .gate import run_gate
 
-    for command in commands:
-        if command[0] == sys.executable and not (root / command[1]).exists():
-            continue
-        required = command[0] == sys.executable
-        code, _, _ = run_available(command, cwd=root, required=required)
-        if code not in (0, 127):
-            failures += 1
-        elif code == 127 and required:
-            failures += 1
-    if failures:
-        print("[repo-safety] push blocked")
-        return 1
-    print("[repo-safety] pre-push passed")
-    return 0
+    return run_gate(target, when="push", offline=offline, json_out=json_out)

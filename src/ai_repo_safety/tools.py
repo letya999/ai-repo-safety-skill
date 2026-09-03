@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import json
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
-from .util import current_platform, is_windows, run_cmd, which
+from .util import current_platform, is_windows, project_root, run_cmd, which
+
+# Pinned TruffleHog release for Windows install-tools. Bump after checking
+# https://github.com/trufflesecurity/trufflehog/releases
+TRUFFLEHOG_RELEASE = "3.97.1"
 
 
 @dataclass
@@ -55,6 +61,43 @@ PYTHON_TOOL_COMMANDS = {
     "git-filter-repo": "uv tool install git-filter-repo",
 }
 
+WINDOWS_INSTALL = {
+    "git": "winget install --id Git.Git -e",
+    "python": "winget install --id Python.Python.3.12 -e",
+    "uv": 'powershell -c "irm https://astral.sh/uv/install.ps1 | iex"',
+    "uvx": 'powershell -c "irm https://astral.sh/uv/install.ps1 | iex"',
+    "gitleaks": "winget install --id Gitleaks.Gitleaks -e",
+    "osv-scanner": "winget install --id Google.OSVScanner -e",
+    "gh": "winget install --id GitHub.cli -e",
+    "trufflehog": (
+        "Download "
+        f"https://github.com/trufflesecurity/trufflehog/releases/download/v{TRUFFLEHOG_RELEASE}/"
+        f"trufflehog_{TRUFFLEHOG_RELEASE}_windows_amd64.tar.gz "
+        "(pinned; do not use /latest)"
+    ),
+    "opengrep": "npm install -g @opengrep/cli",
+}
+
+UNIX_INSTALL = {
+    "git": "Install Git from official docs or OS package manager.",
+    "python": "Install Python 3.12+ or use `uv python install 3.12`.",
+    "uv": "Install uv from https://docs.astral.sh/uv/",
+    "uvx": "uvx is installed with uv; update/reinstall uv if missing.",
+    "gitleaks": "brew install gitleaks",
+    "osv-scanner": "brew install osv-scanner",
+    "gh": "brew install gh",
+    "trufflehog": "brew install trufflehog",
+    "opengrep": "npm install -g @opengrep/cli",
+}
+
+
+def install_one_liner(spec: ToolSpec) -> str:
+    py_cmd = PYTHON_TOOL_COMMANDS.get(spec.command)
+    if py_cmd:
+        return py_cmd
+    table = WINDOWS_INSTALL if is_windows() else UNIX_INSTALL
+    return table.get(spec.command, spec.install_hint)
+
 
 def check_python_312() -> tuple[bool, str]:
     version = sys.version_info
@@ -63,6 +106,11 @@ def check_python_312() -> tuple[bool, str]:
 
 
 def check_tool(spec: ToolSpec) -> tuple[bool, str]:
+    if spec.command == "python" and is_windows() and not which("python") and which("py"):
+        code, out, err = run_cmd(["py", "-3", "--version"], timeout=20)
+        if code == 0:
+            version = (out or err or "py -3").strip().splitlines()[0]
+            return True, version
     path = which(spec.command)
     if not path:
         return False, "missing"
@@ -75,15 +123,12 @@ def check_tool(spec: ToolSpec) -> tuple[bool, str]:
     return True, version
 
 
-def doctor(*, agent_plan: bool = False) -> int:
-    print("AI Repo Safety Doctor")
-    print(f"Platform: {current_platform()}")
-    print(f"Python executable: {sys.executable}")
-    print()
-
+def doctor(*, agent_plan: bool = False, json_out: bool = False, target: str | Path | None = None) -> int:
+    root = project_root(target or ".")
     rows: list[tuple[str, str, str]] = [("Tool", "Status", "Details")]
     missing_required: list[ToolSpec] = []
     missing_optional: list[ToolSpec] = []
+    tool_rows: list[dict] = []
 
     py_ok, py_ver = check_python_312()
     if not py_ok:
@@ -94,45 +139,89 @@ def doctor(*, agent_plan: bool = False) -> int:
     for spec in TOOL_SPECS:
         ok, details = check_tool(spec)
         status = "OK" if ok else ("FAIL" if spec.required else "MISSING")
-        display = details if ok else spec.install_hint
+        install = install_one_liner(spec)
+        display = details if ok else install
         if spec.privacy_note:
             display = f"{display}; {spec.privacy_note}"
         rows.append((spec.name, status, display))
+        tool_rows.append(
+            {
+                "name": spec.name,
+                "command": spec.command,
+                "status": status,
+                "details": details if ok else display,
+                "install": install,
+                "required": spec.required,
+            }
+        )
         if not ok and spec.required:
             missing_required.append(spec)
         elif not ok:
             missing_optional.append(spec)
+
+    uv_lock = (root / "uv.lock").exists()
+    osv_ok = bool(which("osv-scanner"))
+    tag_gate_ok = (not uv_lock) or osv_ok
+    if uv_lock and not osv_ok:
+        rows.append(
+            (
+                "OSV-Scanner (tag gate)",
+                "FAIL",
+                f"{install_one_liner(next(s for s in TOOL_SPECS if s.command == 'osv-scanner'))}; uv.lock present so tag gate requires osv-scanner",
+            )
+        )
+        missing_required.append(next(s for s in TOOL_SPECS if s.command == "osv-scanner"))
+
+    missing_payload = [
+        {"name": spec.name, "install": install_one_liner(spec)}
+        for spec in missing_required + missing_optional
+    ]
+    # Dedupe osv-scanner if added twice.
+    seen: set[str] = set()
+    unique_missing: list[dict] = []
+    for item in missing_payload:
+        if item["name"] in seen:
+            continue
+        seen.add(item["name"])
+        unique_missing.append(item)
+
+    payload = {
+        "platform": current_platform(),
+        "python_executable": sys.executable,
+        "python": {"ok": py_ok, "version": py_ver},
+        "target": str(root),
+        "tools": tool_rows,
+        "missing": unique_missing,
+        "tag_gate": {"uv_lock": uv_lock, "osv_scanner": osv_ok, "ok": tag_gate_ok},
+        "invoke": [
+            "py -3 -m ai_repo_safety",
+            "python -m ai_repo_safety",
+            "uvx ai-repo-safety",
+        ],
+    }
+
+    if json_out:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        if not py_ok or missing_required:
+            return 2
+        return 0
+
+    print("AI Repo Safety Doctor")
+    print(f"Platform: {current_platform()}")
+    print(f"Python executable: {sys.executable}")
+    print()
 
     from .util import print_table
     print_table(rows)
     print()
 
     if missing_required or agent_plan:
-        print("Agent install plan:")
-        print("1. For every missing tool, search the official documentation or official releases for the current stable compatible version.")
-        print("2. Prefer uv/uvx for Python tools and official OS package managers for system binaries.")
-        print("3. Do not install random blog snippets, curl|bash commands from untrusted pages, or unpinned binaries.")
-        print("4. Re-run `ai-repo-safety doctor` after installation.")
+        print("Agent install plan (one command per missing tool):")
+        for item in unique_missing:
+            print(f"- {item['name']}: `{item['install']}`")
         print()
-        from .util import is_windows
-        is_win = is_windows()
-        for spec in missing_required + missing_optional:
-            py_cmd = PYTHON_TOOL_COMMANDS.get(spec.command)
-            if py_cmd:
-                print(f"- {spec.name}: try `{py_cmd}`; if it fails, search official docs for stable compatible install.")
-            else:
-                hint = spec.install_hint
-                if spec.name == "Opengrep":
-                    hint = "run `irm https://raw.githubusercontent.com/opengrep/opengrep/main/install.ps1 | iex` (PowerShell) or `npm install -g @opengrep/cli`" if is_win else "run `curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash` or `npm install -g @opengrep/cli`"
-                elif spec.name == "Gitleaks":
-                    hint = "run `winget install --id Gitleaks.Gitleaks -e` or `scoop install gitleaks`" if is_win else "run `brew install gitleaks` or OS package manager"
-                elif spec.name == "OSV-Scanner":
-                    hint = "run `winget install --id Google.OSVScanner -e` or `scoop install osv-scanner`" if is_win else "run `brew install osv-scanner` or OS package manager"
-                elif spec.name == "TruffleHog":
-                    hint = "Not in winget/scoop. Find latest version via `curl -s https://api.github.com/repos/trufflesecurity/trufflehog/releases/latest` and download the windows_amd64.zip binary" if is_win else "run `brew install trufflehog` or download binary"
-                elif spec.name == "GitHub CLI":
-                    hint = "run `winget install --id GitHub.cli -e` or `scoop install gh`" if is_win else "run `brew install gh` or OS package manager"
-                print(f"- {spec.name}: {hint}")
+        print("Canonical invoke: `py -3 -m ai_repo_safety` / `python -m ai_repo_safety` / `uvx ai-repo-safety`.")
+        print("Re-run `python -m ai_repo_safety doctor --target .` after installation.")
 
     if not py_ok or missing_required:
         return 2
@@ -228,25 +317,15 @@ def install_missing_tools(*, dry_run: bool = False, yes: bool = False) -> int:
                     
             elif tool == "trufflehog":
                 if is_win:
-                    print("[repo-safety] downloading trufflehog for windows...")
+                    print("[repo-safety] downloading pinned trufflehog for windows...")
                     import urllib.request
                     import tarfile
                     import io
-                    import json
                     try:
-                        # 1. Fetch latest release info to get the actual version and download URL
-                        req = urllib.request.Request("https://api.github.com/repos/trufflesecurity/trufflehog/releases/latest", headers={"User-Agent": "Mozilla/5.0"})
-                        with urllib.request.urlopen(req) as r:  # nosec B310
-                            release_data = json.loads(r.read())
-                        # Find asset ending with windows_amd64.tar.gz
-                        download_url = None
-                        for asset in release_data.get("assets", []):
-                            if asset.get("name", "").endswith("windows_amd64.tar.gz"):
-                                download_url = asset.get("browser_download_url")
-                                break
-                        if not download_url:
-                            download_url = "https://github.com/trufflesecurity/trufflehog/releases/latest/download/trufflehog_windows_amd64.tar.gz"
-                        
+                        download_url = (
+                            "https://github.com/trufflesecurity/trufflehog/releases/download/"
+                            f"v{TRUFFLEHOG_RELEASE}/trufflehog_{TRUFFLEHOG_RELEASE}_windows_amd64.tar.gz"
+                        )
                         print(f"[repo-safety] downloading trufflehog from {download_url}...")
                         with urllib.request.urlopen(download_url) as response:  # nosec B310
                             tar_bytes = response.read()

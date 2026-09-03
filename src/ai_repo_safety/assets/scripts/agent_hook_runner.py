@@ -79,21 +79,47 @@ def resolve_trufflehog_since_commit(root: Path) -> str | None:
     return None
 
 
+def _payload_get(payload: dict, *names: str):
+    for name in names:
+        value = payload.get(name)
+        if value is not None:
+            return value
+    return None
+
+
 def extract_command(stdin_text: str, explicit_command: str | None) -> str:
     if explicit_command:
         return explicit_command
-    if not stdin_text.strip():
-        return ""
-    try:
-        payload = json.loads(stdin_text)
-    except json.JSONDecodeError:
-        return ""
-    tool_input = payload.get("tool_input")
+    payload = extract_payload(stdin_text)
+    tool_input = _payload_get(payload, "tool_input", "toolInput")
     if isinstance(tool_input, dict):
         command = tool_input.get("command")
         if isinstance(command, str):
             return command
     return ""
+
+
+def extract_tool_name(payload: dict) -> str:
+    value = _payload_get(payload, "tool_name", "toolName")
+    return value if isinstance(value, str) else ""
+
+
+def classify_when(command: str) -> str | None:
+    if not command:
+        return None
+    if re.search(r"(^|\s)gh\s+(pr|issue|api)\s+(view|list)\b", command, flags=re.IGNORECASE):
+        return "github-read"
+    if re.search(r"(^|\s)git\s+commit\b", command, flags=re.IGNORECASE):
+        return "commit"
+    if re.search(r"(^|\s)git\s+tag\b", command, flags=re.IGNORECASE):
+        return "tag"
+    if re.search(r"(^|\s)git\s+push\b", command, flags=re.IGNORECASE):
+        if re.search(r"(--tags|\brefs/tags/)", command, flags=re.IGNORECASE):
+            return "tag"
+        return "push"
+    if SENSITIVE_COMMAND_RE.search(command):
+        return "push"
+    return None
 
 
 def extract_payload(stdin_text: str) -> dict:
@@ -131,9 +157,7 @@ def _mcp_policy(root: Path) -> dict:
 
 
 def is_repo_mcp_tool(tool_name: str) -> bool:
-    return tool_name.startswith("mcp__github__") or tool_name.startswith(
-        "mcp__gitlab__"
-    )
+    return bool(re.match(r"^(mcp__)?(github|gitlab)__", tool_name))
 
 
 def is_write_capable_mcp_tool(tool_name: str) -> bool:
@@ -211,10 +235,10 @@ def append_mcp_audit_record(root: Path, payload: dict) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     record = {
         "ts": datetime.now(UTC).isoformat(),
-        "hook_event_name": payload.get("hook_event_name"),
-        "tool_name": payload.get("tool_name"),
-        "tool_input": payload.get("tool_input"),
-        "cwd": payload.get("cwd"),
+        "hook_event_name": _payload_get(payload, "hook_event_name", "hookEventName"),
+        "tool_name": extract_tool_name(payload),
+        "tool_input": _payload_get(payload, "tool_input", "toolInput"),
+        "cwd": payload.get("cwd") or payload.get("workspaceRoot"),
         "decision": payload.get("decision", "observe"),
     }
     with log_path.open("a", encoding="utf-8") as fh:
@@ -316,50 +340,55 @@ def run_check(check: str, root: Path) -> tuple[int, str]:
     return 2, f"{prefix}\n{details}" if details else prefix
 
 
-def run_profile(profile: str, root: Path) -> tuple[int, str]:
-    if profile != "sensitive-preflight":
-        if profile == "mcp-invocation-audit":
+def emit_deny(message: str) -> int:
+    reason = message.splitlines()[0][:500] if message else "repo safety gate failed"
+    print(json.dumps({"decision": "deny", "reason": reason}, ensure_ascii=False), flush=True)
+    print(message, file=sys.stderr)
+    return 2
+
+
+def run_gate_when(root: Path, when: str) -> tuple[int, str]:
+    try:
+        from ai_repo_safety.gate import run_gate
+
+        code = run_gate(root, when=when)
+        if code == 0:
             return 0, ""
+        return code, f"[repo-safety] blocking sensitive command: {when} gate failed (exit {code})"
+    except ImportError:
+        code, out, err = run_cmd(
+            [sys.executable, "-m", "ai_repo_safety", "gate", "--when", when, "--target", str(root)],
+            cwd=root,
+            timeout=600,
+        )
+        if code == 0:
+            return 0, ""
+        details = (err or out).strip()
+        prefix = f"[repo-safety] blocking sensitive command: {when} gate failed"
+        return (2 if code in (2, 127) else code), f"{prefix}\n{details}" if details else prefix
+
+
+def run_profile(profile: str, root: Path, command: str = "") -> tuple[int, str]:
+    if profile == "mcp-invocation-audit":
+        return 0, ""
+    if profile not in ("sensitive-preflight", "gate"):
         return 2, f"unsupported profile: {profile}"
 
-    checks: list[str] = ["gitleaks", "trufflehog"]
-    if opengrep_command(root) is not None:
-        checks.append("opengrep")
-    if looks_like_python_repo(root):
-        checks.append("bandit")
-
-    for check in checks:
-        if check == "gitleaks":
-            cmd = gitleaks_command()
-        elif check == "trufflehog":
-            cmd = trufflehog_command(root)
-        elif check == "opengrep":
-            cmd = opengrep_command(root)
-            if cmd is None:
-                continue
-        elif check == "bandit":
-            cmd = bandit_command(root)
-        else:
-            return 2, f"unsupported check: {check}"
-
-        code, out, err = run_cmd(cmd, cwd=root, timeout=300)
-        if code == 0:
-            continue
-        if code == 127:
-            return (
-                2,
-                f"[repo-safety] blocking sensitive command: required scanner `{check}` is missing",
-            )
-        details = (err or out).strip()
-        prefix = f"[repo-safety] blocking sensitive command: {check} failed"
-        return 2, f"{prefix}\n{details}" if details else prefix
-
-    return 0, ""
+    when = classify_when(command)
+    if when is None:
+        return 0, ""
+    if when == "github-read":
+        return 2, (
+            "[repo-safety] blocking raw GitHub CLI read. Use: "
+            'python -m ai_repo_safety gate --when github-read --repo owner/repo '
+            '--resource pulls --reason "review current PRs"'
+        )
+    return run_gate_when(root, when)
 
 
 def run_mcp_audit_profile(root: Path, payload: dict) -> tuple[int, str]:
-    tool_name = payload.get("tool_name")
-    if not isinstance(tool_name, str) or not tool_name.startswith("mcp__"):
+    tool_name = extract_tool_name(payload)
+    if not isinstance(tool_name, str) or not is_repo_mcp_tool(tool_name):
         return 0, ""
 
     decision = "observe"
@@ -388,7 +417,7 @@ def main(argv: list[str] | None = None) -> int:
         "--check", choices=["bandit", "trufflehog", "gitleaks", "opengrep"]
     )
     parser.add_argument(
-        "--profile", choices=["sensitive-preflight", "mcp-invocation-audit"]
+        "--profile", choices=["sensitive-preflight", "mcp-invocation-audit", "gate"]
     )
     parser.add_argument("--command")
     args = parser.parse_args(argv)
@@ -403,17 +432,27 @@ def main(argv: list[str] | None = None) -> int:
             code, message = run_mcp_audit_profile(root, payload)
         else:
             command = extract_command(stdin_text, args.command)
-            if not is_sensitive_command(command):
+            if not command:
+                tool_name = extract_tool_name(payload)
+                if payload and (
+                    tool_name
+                    or _payload_get(payload, "tool_input", "toolInput") is not None
+                ):
+                    return emit_deny(
+                        "[repo-safety] blocking: could not parse command from hook payload"
+                    )
                 return 0
-            code, message = run_profile(args.profile, root)
+            if not is_sensitive_command(command) and classify_when(command) is None:
+                return 0
+            code, message = run_profile(args.profile, root, command)
     else:
         command = extract_command(stdin_text, args.command)
         if not is_sensitive_command(command):
             return 0
         code, message = run_check(args.check, root)
-    if code != 0 and message:
-        print(message, file=sys.stderr)
-    return code
+    if code != 0:
+        return emit_deny(message or "repo safety gate failed")
+    return 0
 
 
 if __name__ == "__main__":

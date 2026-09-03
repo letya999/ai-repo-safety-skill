@@ -30,10 +30,17 @@ def _extra_path_dirs() -> list[str]:
     extras.append(str(Path(sys.executable).parent))
     # Always ensure the user-local bin is present.
     extras.append(str(Path.home() / ".local" / "bin"))
+    # uv tool install location on POSIX.
+    extras.append(str(Path.home() / ".local" / "share" / "uv" / "tools" / "ai-repo-safety" / "bin"))
     # Opengrep default install path.
     extras.append(str(Path.home() / ".opengrep" / "cli" / "latest"))
 
     if platform.system().lower() == "windows":
+        appdata = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+        localappdata = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+        extras.append(str(Path(appdata) / "uv" / "tools" / "ai-repo-safety" / "Scripts"))
+        extras.append(str(Path(localappdata) / "Microsoft" / "WinGet" / "Links"))
+        extras.append(str(Path.home() / ".local" / "bin"))
         # On Windows, dynamically read the latest PATH from the registry
         # to capture freshly added winget / scoop / npm-global paths.
         try:

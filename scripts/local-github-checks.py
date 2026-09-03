@@ -142,7 +142,7 @@ def _checks(expected_version: str) -> list[Check]:
         Check("ci / test py3.13", ["uv", "run", "--extra", "dev", "--python", "3.13", "pytest", "-q"]),
         Check("ci+sast / ruff", ["uvx", "--from", "ruff==0.15.17", "ruff", "check", "."]),
         Check("sast / bandit", ["uvx", "bandit", "-q", "-r", "src", "-x", "tests,.venv,venv"]),
-        Check("sast / pip-audit", ["uvx", "--with", "msgpack>=1.2.1", "pip-audit"]),
+        Check("sast / lockfile-audit", [sys.executable, "-m", "ai_repo_safety.lockfile_audit", str(ROOT)]),
         Check("sast / opengrep placeholder local equivalent"),
         Check("ci / uv build", ["uv", "build"]),
         Check("publish-pypi / uv build --no-sources", ["uv", "build", "--no-sources"]),
@@ -158,7 +158,7 @@ def _checks(expected_version: str) -> list[Check]:
             ["trufflehog", "git", "file://.", "--no-update", "--results=verified,unknown", "--fail"],
         ),
         Check("supply-chain / osv", ["osv-scanner", "scan", "source", "-r", "--allow-no-lockfiles", "."]),
-        Check("supply-chain / pip-audit", ["uvx", "--with", "msgpack>=1.2.1", "pip-audit"]),
+        Check("supply-chain / lockfile-audit", [sys.executable, "-m", "ai_repo_safety.lockfile_audit", "--required", str(ROOT)]),
         Check(
             "local repo-safety precommit gate",
             [sys.executable, "-m", "ai_repo_safety", "scan", "--target", ".", "--offline"],

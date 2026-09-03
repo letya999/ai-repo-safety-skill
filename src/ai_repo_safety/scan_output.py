@@ -9,7 +9,6 @@ representation of the result for CI ingestion.
 from __future__ import annotations
 
 import json
-import os
 import subprocess  # nosec
 import sys
 from pathlib import Path
@@ -96,20 +95,6 @@ def _resolve_trufflehog_since_commit(root: Path) -> str | None:
         if len(commits) >= 2:
             return commits[-1]
     return None
-
-
-def _pip_audit_env(root: Path) -> dict[str, str]:
-    env = os.environ.copy()
-    candidates = [
-        root / ".venv" / "Scripts" / "python.exe",
-        root / ".venv" / "bin" / "python",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            env["PIPAPI_PYTHON_LOCATION"] = str(candidate)
-            return env
-    env["PIPAPI_PYTHON_LOCATION"] = sys.executable
-    return env
 
 
 def _collect_report(target: str | Path, *, strict: bool, offline: bool) -> ScanReport:
@@ -201,33 +186,50 @@ def _collect_report(target: str | Path, *, strict: bool, offline: bool) -> ScanR
         if offline:
             report.tools.append(
                 ToolRun(
-                    name="pip-audit",
-                    command=["pip-audit"],
+                    name="lockfile-audit",
+                    command=["osv-scanner", "scan", "source", "--lockfile", "uv.lock"],
                     status="skipped",
                     required=False,
                     reason="network_required",
                 )
             )
-        elif which("pip-audit"):
-            report.tools.append(
-                _run_subprocess(
-                    "pip-audit",
-                    ["pip-audit"],
-                    required=False,
-                    offline=offline,
-                    env=_pip_audit_env(root),
-                )
-            )
         else:
-            report.tools.append(
-                ToolRun(
-                    name="pip-audit",
-                    command=["pip-audit"],
-                    status="skipped",
-                    required=False,
-                    reason="missing",
+            from .lockfile_audit import audit_lockfile
+
+            code, detail = audit_lockfile(root, required=False, offline=False)
+            if code == 0:
+                status: Status = "passed" if "skipped" not in (detail or "") else "skipped"
+                report.tools.append(
+                    ToolRun(
+                        name="lockfile-audit",
+                        command=["osv-scanner", "scan", "source", "--lockfile", "uv.lock"],
+                        status=status,
+                        exit_code=code,
+                        required=False,
+                        reason=detail or None,
+                    )
                 )
-            )
+            elif code == 127:
+                report.tools.append(
+                    ToolRun(
+                        name="lockfile-audit",
+                        command=["osv-scanner", "scan", "source", "--lockfile", "uv.lock"],
+                        status="skipped",
+                        required=False,
+                        reason=detail or "missing",
+                    )
+                )
+            else:
+                report.tools.append(
+                    ToolRun(
+                        name="lockfile-audit",
+                        command=["osv-scanner", "scan", "source", "--lockfile", "uv.lock"],
+                        status="failed",
+                        exit_code=code,
+                        required=False,
+                        reason=detail or None,
+                    )
+                )
 
     failed = [t for t in report.tools if t.status == "failed"]
     skipped = [t for t in report.tools if t.status == "skipped"]

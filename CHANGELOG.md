@@ -5,6 +5,35 @@ file. Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-03
+
+### Added
+- `ai-repo-safety gate --when commit|push|tag|github-read|auto` as the single
+  fail-closed CLI used by git hooks and agent preflight.
+- Native `pre-commit` and tag-aware `pre-push` hooks that exec
+  `py -3` / `python` / `uvx` via `python -m ai_repo_safety` after probing
+  `import ai_repo_safety.gate`. Missing CLI refuses (exit 1).
+- Grok project hooks (`.grok/hooks/ai-repo-safety.json`) with camelCase
+  payload support, `Bash|run_terminal_command` matcher, 600s timeout, and
+  GitHub/GitLab MCP names (`github__*` and `mcp__github__*`).
+- Parent `--target` / `--json` on every subcommand, including `doctor`.
+- Lockfile supply-chain audit (`osv-scanner` on `uv.lock`, fallback
+  `uv export --frozen --no-dev` + `pip-audit -r --disable-pip`).
+
+### Changed
+- Commit and tag-push stay fail-closed; Grok hooks remain fail-open early
+  warning. SKILL.md and AGENTS.md no longer pretend to be the lock.
+- `prepush` is an alias of `gate --when push`. Missing `gitleaks` fails
+  the commit/push/tag gates instead of warning.
+- Stopped auditing the CLI interpreter with bare `pip-audit` /
+  `PIPAPI_PYTHON_LOCATION`.
+- Dropped unused `pre-push.cmd` (Git for Windows does not run `*.cmd` hooks).
+
+### Fixed
+- `doctor --target PATH` is accepted.
+- Agent hook runner no longer treats an empty Grok `toolInput` as
+  "not sensitive" (which skipped push/commit).
+
 ## [0.1.6] - 2026-06-23
 
 ### Fixed

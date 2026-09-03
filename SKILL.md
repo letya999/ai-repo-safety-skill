@@ -1,197 +1,61 @@
 ---
 name: ai-repo-safety
-description: Secure bootstrap and guardrails for AI/vibe-coded repositories. Applies OSS secret scanning, Opengrep-first SAST, Python hardening, GitHub read guard, MCP safety, supply-chain audit, threat-model-lite, and incident cleanup. Use before coding, before commit, before push, before reading GitHub context, and before publishing a repo.
+description: Git-hook-backed secret and supply-chain gates for AI-coded repos. Use when initializing a repo, handling a leaked secret, making a public release, or when the user names this skill. Do not load just because a coding session started.
 ---
 
 # AI Repo Safety
 
-You are applying one powerful universal safety skill to a repository. Your job is not to give generic advice. Your job is to bring the assets, adapt them to the repo, install hooks, run scanners, fix obvious findings, and report what remains.
+Canonical invoke:
 
-## Default stack
-
-- Python 3.12+
-- uv / uvx
-- Git
-- Free / OSS / community tools only by default
-- Opengrep-first SAST, not Semgrep-first
-- GitHub profile only when GitHub is detected or requested
-- GitLab profile for SaaS and Self-Hosted instances
-- Minimal, append-only repo footprint by default; full root-level bootstrap only when explicitly requested
-
-## When to use
-
-Use this skill proactively when the user asks to:
-
-- create a new project
-- initialize a repo
-- make a repo public
-- push code
-- add GitHub Actions
-- add AI agent rules
-- add MCP servers
-- scan for secrets
-- fix security posture
-- review GitHub or GitLab issues/PRs/MRs/commits/branches with an AI agent
-- prepare a Python project for public GitHub
-- clean up an exposed secret
-
-## Installation
-
-To run `ai-repo-safety` from any directory, install it as a tool using `uv`:
-
-```bash
-uv tool install --editable <path-to-ai-repo-safety-skill>
+```text
+py -3 -m ai_repo_safety <cmd> --target .
+python -m ai_repo_safety <cmd> --target .
+uvx ai-repo-safety <cmd> --target .
 ```
 
-Alternatively, you can run it directly from its directory by passing the target path:
+Do not run `doctor`, `init`, or `scan` at the start of a session.
 
-```bash
-uv run ai-repo-safety <command> --target <path-to-target-repo>
+## Git gates (this is the lock)
+
+Commit, push, and tag are enforced by git hooks, not by this file.
+
+```text
+python -m ai_repo_safety install-hooks --target .
 ```
 
-## Workflow
+If hooks are missing and you are about to `git commit` / `git push` / `git tag`:
 
-1. Run environment check:
+```text
+python -m ai_repo_safety gate --when commit --target .
+python -m ai_repo_safety gate --when push --target .
+python -m ai_repo_safety gate --when tag --target .
+```
 
-   ```bash
-   uv run ai-repo-safety doctor --agent-plan
-   ```
+`--no-verify` is a human escape hatch. Do not use it to skip a finding.
 
-2. If Git, Python 3.12, uv, or uvx are missing:
-   - search official docs or official releases for the current stable compatible version,
-   - install using trusted OS package manager or official installer,
-   - re-run doctor,
-   - do not proceed with repo changes until required tooling exists.
+## GitHub context
 
-3. Initialize safety assets:
+Do not pipe `gh pr view`, `gh issue view`, or raw GitHub pages into the model.
 
-   ```bash
-   uv run ai-repo-safety init --target . --python auto --github auto --gitlab auto
-   ```
+```text
+python -m ai_repo_safety gate --when github-read --repo owner/repo --resource pulls --reason "review current PRs"
+```
 
-   Default init keeps its generated assets under `.repo-safety/` so the skill
-   does not scatter helper scripts, docs, templates, and policy through the
-   repository root. For deliberate root-level integration files such as
-   `AGENTS.md`, `.gitignore`, `.dockerignore`, `SECURITY.md`, `.github/`, and
-   `.gitlab/`, use `--full`.
+## Init (only when asked)
 
-   For a deliberate all-in bootstrap, use:
+```text
+python -m ai_repo_safety init --target .
+python -m ai_repo_safety install-agent-hooks --target . --tool grok
+```
 
-   ```bash
-   uv run ai-repo-safety init --target . --full
-   ```
+Then run `/hooks-trust` so Grok project hooks load. Grok hooks fail open; git hooks stay fail-closed.
 
-4. Install local hooks:
+## Never
 
-   ```bash
-   uv run ai-repo-safety install-hooks --target .
-   pre-commit install
-   ```
+Do not read, print, or commit: `.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `id_rsa`, `id_ed25519`, `credentials*.json`, `service-account*.json`, `token.json`, `tokens.json`, `secrets.json`, `.mcp.json`, `claude_desktop_config.json`, `*.ovpn`.
 
-5. Run scans:
+Do not `git push`, publish, make the repo public, or open a public PR unless the user asked.
 
-   ```bash
-   uv run ai-repo-safety scan --target .
-   ```
+## Incident
 
-   For AI agent skill scanning, run:
-
-   ```bash
-   uv run ai-repo-safety scan --target . --agent-skills
-   ```
-
-   Use `--allow-cloud-agent-scan` only when the user explicitly accepts
-   cloud-backed metadata analysis by Snyk Agent Scan.
-
-6. Fix obvious issues:
-   - move secrets to env variables,
-   - create `.env.example` placeholders,
-   - remove tracked secret files,
-   - fix unsafe Python patterns,
-   - remove unsafe MCP config,
-   - replace hallucinated dependencies.
-
-7. Before push:
-
-   ```bash
-   uv run ai-repo-safety prepush --target .
-   ```
-
-8. Before reading GitHub or GitLab issues, PRs/MRs, commits, branches into AI context:
-
-   ```bash
-   uv run ai-repo-safety github-guard read --repo owner/repo --resource pulls --reason "review current PRs"
-   uv run ai-repo-safety gitlab-guard read --repo owner/repo --resource merge_requests --reason "review current MRs"
-   ```
-
-## Tooling behavior
-
-- The `ai-repo-safety install-tools` command defaults to dry-run (`--plan`). To actually install system tools, you must explicitly pass `--yes`.
-- The NPM wrapper uses a pinned `uvx` resolution for supply-chain safety.
-- The CLI version is dynamically derived from `importlib.metadata` (the installed wheel).
-
-## OpenCode flow & Threat Model
-
-When operating on OpenCode repositories, follow the specific flow documented in `docs/opencode.md`. This workflow adheres to the agentic-skills threat model, ensuring secure automated changes and strict review gates for mutations.
-
-## Practices this skill enforces
-
-- Secure bootstrap before first commit
-- `.gitignore` + `.env.example`, but no trust in `.gitignore` as a security boundary
-- denylist for `.env`, keys, credentials, `.mcp.json`, `*.ovpn`
-- Gitleaks / TruffleHog / detect-secrets gates
-- Opengrep-compatible SAST rules
-- Bandit / Ruff / pip-audit for Python
-- gosec / govulncheck for Go
-- cargo-audit / cargo-deny for Rust
-- ESLint / package-manager audit / OSV Scanner for JavaScript, TypeScript, and Angular
-- optional SkillSpector, Cisco Skill Scanner, and Snyk Agent Scan for agent skills
-- OSV-Scanner / Renovate / SBOM templates for supply-chain audit
-- GitHub Actions workflows for public repo hygiene
-- GitHub and GitLab read guard for commits, PRs/MRs, branches, and issues
-- AGENTS.md rules for AI agents
-- MCP allowlist and plaintext token checks
-- lightweight STRIDE threat model
-- incident cleanup flow: rotate first, then clean history
-
-## Safety rules
-
-Never read, print, upload, summarize, or commit:
-
-- `.env`, `.env.*`
-- `*.pem`, `*.key`, `*.p12`, `*.pfx`
-- `id_rsa`, `id_ed25519`
-- `credentials*.json`, `service-account*.json`
-- `token.json`, `tokens.json`, `secrets.json`
-- `.mcp.json`, `claude_desktop_config.json`
-- `*.ovpn`
-
-Never do without explicit user confirmation:
-
-- `git push`
-- make repository public
-- create public issue/PR/MR with private context
-- read GitHub or GitLab issues/PRs/MRs/commits/branches directly into AI context
-- run `env`, `printenv`, `cat .env`, `Get-Content .env`
-- install unknown packages suggested only by model memory
-- add or change MCP servers
-- disable auth/RLS/CORS/security checks just to make code work
-
-## Missing tools policy
-
-If a tool is missing, do not invent stale install commands from memory. Run doctor, then search official docs/releases for the current stable compatible version. Prefer:
-
-- `uv tool install ...` for Python tools
-- official releases or trusted OS package managers for system binaries
-- pinned versions where possible
-
-## Output format after applying
-
-Report:
-
-- files added/changed
-- tools missing
-- scans run
-- findings fixed
-- findings left for user review
-- exact next commands
+If a secret is found, stop and follow `docs/incident-cleanup.md`. Threat-model, GitLab, and OpenCode live in `docs/`.

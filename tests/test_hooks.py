@@ -5,8 +5,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 from ai_repo_safety.cli import main
 
 
@@ -14,16 +12,26 @@ def _init_repo(tmp_path: Path) -> None:
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="chmod/stat.S_IXUSR is not available on Windows")
 def test_install_hooks_fresh_repo(tmp_path: Path) -> None:
     _init_repo(tmp_path)
     code = main(["install-hooks", "--target", str(tmp_path)])
     assert code == 0
-    hook = tmp_path / ".git" / "hooks" / "pre-push"
-    assert hook.exists()
-    # The hook should be executable on POSIX.
-    mode = hook.stat().st_mode
-    assert mode & stat.S_IXUSR
+    pre_push = tmp_path / ".git" / "hooks" / "pre-push"
+    pre_commit = tmp_path / ".git" / "hooks" / "pre-commit"
+    assert pre_push.exists()
+    assert pre_commit.exists()
+    push_text = pre_push.read_text(encoding="utf-8")
+    commit_text = pre_commit.read_text(encoding="utf-8")
+    assert "-m ai_repo_safety" in push_text
+    assert "-m ai_repo_safety" in commit_text
+    assert "import ai_repo_safety.gate" in push_text
+    assert "gate --when" in push_text
+    assert "WHEN=commit" in commit_text
+    assert "WHEN=auto" in push_text
+    assert not (tmp_path / ".git" / "hooks" / "pre-push.cmd").exists()
+    if sys.platform != "win32":
+        assert pre_push.stat().st_mode & stat.S_IXUSR
+        assert pre_commit.stat().st_mode & stat.S_IXUSR
 
 
 def test_install_hooks_refuses_unmanaged_existing_hook(tmp_path: Path) -> None:
@@ -49,6 +57,8 @@ def test_install_hooks_chain_preserves_existing(tmp_path: Path) -> None:
     text = hook.read_text(encoding="utf-8")
     assert "custom user hook" in text
     assert "AI REPO SAFETY PRE-PUSH" in text
+    assert text.index("AI REPO SAFETY PRE-PUSH") < text.index("custom user hook")
+    assert "RAN=0" in text
 
 
 def test_install_hooks_updates_managed_block(tmp_path: Path) -> None:
@@ -67,7 +77,8 @@ def test_install_hooks_updates_managed_block(tmp_path: Path) -> None:
     assert code == 0
     text = hook.read_text(encoding="utf-8")
     assert "echo OLD" not in text
-    assert "ai-repo-safety prepush --target" in text
+    assert "-m ai_repo_safety" in text
+    assert "gate --when" in text
 
 
 def test_install_hooks_overwrite_requires_flag(tmp_path: Path) -> None:

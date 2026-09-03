@@ -19,6 +19,15 @@ def test_importing_util_does_not_mutate_path() -> None:
     )
 
 
+def test_extra_path_dirs_include_user_local_and_windows_shims() -> None:
+    dirs = util._extra_path_dirs()
+    joined = "\n".join(dirs).replace("\\", "/").lower()
+    assert ".local/bin" in joined
+    if util.is_windows():
+        assert "uv/tools/ai-repo-safety/scripts" in joined
+        assert "winget/links" in joined
+
+
 def test_prepare_cli_environment_is_idempotent() -> None:
     before = os.environ.get("PATH", "")
     util.prepare_cli_environment()

@@ -1,11 +1,22 @@
 # Tooling model
 
-Required runtime tools (verified by `ai-repo-safety doctor`):
+Canonical invoke:
+
+```text
+py -3 -m ai_repo_safety <cmd> --target .
+python -m ai_repo_safety <cmd> --target .
+uvx ai-repo-safety <cmd> --target .
+```
+
+Required runtime tools (verified by `ai-repo-safety doctor --target .`):
 
 - Git
 - Python 3.12+
 - uv
 - uvx
+
+Commit/push/tag hardness is `python -m ai_repo_safety gate --when commit|push|tag`.
+Tag gates audit `uv.lock` via osv-scanner (fallback: `uv export --frozen --no-dev` + `pip-audit -r --disable-pip`). Never run bare `pip-audit` against the CLI interpreter.
 
 ## How tools get installed
 
