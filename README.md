@@ -1,7 +1,7 @@
 # AI Repo Safety Skill
 
 <p align="center">
-  <a href="https://github.com/letya999/ai-repo-safety-skill/actions/workflows/ci.yml"><img src="https://github.com/letya999/ai-repo-safety-skill/actions/workflows/ci.yml/badge.svg?branch=main" alt="ci"></a>
+  <a href="https://github.com/letya999/ai-repo-safety-skill/actions/workflows/ci.yml"><img src="https://github.com/letya999/ai-repo-safety-skill/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
   <a href="https://pypi.org/project/ai-repo-safety/"><img src="https://img.shields.io/pypi/v/ai-repo-safety" alt="PyPI"></a>
   <a href="https://www.npmjs.com/package/ai-repo-safety"><img src="https://img.shields.io/npm/v/ai-repo-safety" alt="npm"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
