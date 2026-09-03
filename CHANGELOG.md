@@ -35,6 +35,8 @@ file. Versions follow [Semantic Versioning](https://semver.org/).
   "not sensitive" (which skipped push/commit).
 - `publish-pypi.yml` install-wheel smoke matches default minimal init
   (assets under `.repo-safety/`, not root `AGENTS.md` / `SECURITY.md`).
+- Bump `pypa/gh-action-pypi-publish` to v1.14.2 so hatchling
+  `Metadata-Version: 2.5` wheels upload (Twine 7).
 
 ## [0.1.6] - 2026-06-23
 
