@@ -29,12 +29,23 @@ jobs:
           /tmp/smoke/bin/pip install --quiet --no-index --find-links dist ai-repo-safety
           /tmp/smoke/bin/ai-repo-safety --version
           /tmp/smoke/bin/ai-repo-safety init --target /tmp/smoke-target --python yes --github no
-          test -f /tmp/smoke-target/AGENTS.md
-          test -f /tmp/smoke-target/SECURITY.md
+          test ! -f /tmp/smoke-target/AGENTS.md
+          test ! -f /tmp/smoke-target/SECURITY.md
+          test ! -f /tmp/smoke-target/bandit.yaml
+          test ! -f /tmp/smoke-target/pyproject.ai-repo-safety.toml
           test -f /tmp/smoke-target/.repo-safety/config.json
+          test -f /tmp/smoke-target/.repo-safety/templates/AGENTS.md
+          test -f /tmp/smoke-target/.repo-safety/templates/SECURITY.md
+          test -f /tmp/smoke-target/.repo-safety/templates/.env.example
           test -f /tmp/smoke-target/.repo-safety/templates/bandit.yaml
           test -f /tmp/smoke-target/.repo-safety/templates/pyproject.ai-repo-safety.toml
           test -f /tmp/smoke-target/.repo-safety/opengrep/python-dangerous-code.yml
+          test -f /tmp/smoke-target/.repo-safety/opengrep/python-fastapi-security.yml
+          test -f /tmp/smoke-target/.repo-safety/opengrep/secrets-adjacent.yml
+          test -f /tmp/smoke-target/.repo-safety/scripts/forbid_sensitive_files.py
+          test -f /tmp/smoke-target/.repo-safety/scripts/scan_mcp_config.py
+          test -f /tmp/smoke-target/.repo-safety/docs/mcp-safety.md
+          test -f /tmp/smoke-target/.repo-safety/docs/threat-model.md
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist

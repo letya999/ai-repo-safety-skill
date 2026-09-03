@@ -33,6 +33,8 @@ file. Versions follow [Semantic Versioning](https://semver.org/).
 - `doctor --target PATH` is accepted.
 - Agent hook runner no longer treats an empty Grok `toolInput` as
   "not sensitive" (which skipped push/commit).
+- `publish-pypi.yml` install-wheel smoke matches default minimal init
+  (assets under `.repo-safety/`, not root `AGENTS.md` / `SECURITY.md`).
 
 ## [0.1.6] - 2026-06-23
 
