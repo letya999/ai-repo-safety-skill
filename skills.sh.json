@@ -1,4 +1,13 @@
 {
   "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
-  "skills": ["ai-repo-safety"]
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Security",
+      "description": "Secure bootstrap and guardrails for AI-built repositories.",
+      "skills": [
+        "ai-repo-safety"
+      ]
+    }
+  ]
 }
