@@ -1,10 +1,16 @@
+<p align="center">
+  <strong>English</strong> · <a href="README.ru.md">Русский</a>
+</p>
+
 # AI Repo Safety Skill
 
-Package links:
-
-- skill: [https://skills.sh/letya999/ai-repo-safety-skill](https://skills.sh/letya999/ai-repo-safety-skill)
-- PyPI: [https://pypi.org/project/ai-repo-safety/](https://pypi.org/project/ai-repo-safety/)
-- npm: [https://www.npmjs.com/package/ai-repo-safety](https://www.npmjs.com/package/ai-repo-safety)
+<p align="center">
+  <a href="https://github.com/letya999/ai-repo-safety-skill/actions/workflows/ci.yml"><img src="https://github.com/letya999/ai-repo-safety-skill/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
+  <a href="https://pypi.org/project/ai-repo-safety/"><img src="https://img.shields.io/pypi/v/ai-repo-safety" alt="PyPI"></a>
+  <a href="https://www.npmjs.com/package/ai-repo-safety"><img src="https://img.shields.io/npm/v/ai-repo-safety" alt="npm"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
+  <a href="https://skills.sh/letya999/ai-repo-safety-skill"><img src="https://skills.sh/b/letya999/ai-repo-safety-skill" alt="skills.sh"></a>
+</p>
 
 One powerful public skill + asset repository for hardening AI/vibe-coded projects before commit, before push, and before publishing on GitHub.
 
